@@ -1,0 +1,20 @@
+{
+  "auth": "zef:markldevine",
+  "authors": [ "Mark Devine <mark@markdevine.com>" ],
+  "depends": [
+  ],
+  "description": "Our Cache - A general purpose cache for scripts",
+  "license": "Artistic-2.0",
+  "meta-version": 0,
+  "name": "Our::Cache",
+  "perl": "6.*",
+  "provides": {
+    "Our::Cache": "lib/Our/Cache.rakumod"
+  },
+  "resources": [],
+  "source-url": "https://github.com/markldevine/Our-Cache.git",
+  "tags": [
+    "Utilities"
+  ],
+  "version": "0.0.1"
+}
