@@ -3,11 +3,13 @@ unit module Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 use  Base64::Native;
 use  Compress::Bzip2;
 
-sub cache (Str:D :$meta!, :$data) is export {
+sub cache (Str:D :$meta!, Str :$data, Str :$dir-prefix = $*PROGRAM.IO.basename) is export {
 
-    my Str  $cdir   = $*HOME ~ '/.rakucache/' ~ $*PROGRAM.IO.basename;
-    mkdir $cdir     unless "$cdir".IO.e;
-    $cdir.IO.chmod(0o700);
+    my Str  $cdir   = $*HOME ~ '/.rakucache/' ~ $dir-prefix;
+    unless "$cdir".IO.e {
+        mkdir $cdir;
+        $cdir.IO.chmod(0o700);
+    }
 
     my Str  $path   = $cdir ~ '/' ~ base64-encode($meta, :str);
 
