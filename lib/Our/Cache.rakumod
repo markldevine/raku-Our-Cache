@@ -7,9 +7,11 @@ use  JSON::Fast;
 sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, Instant :$expire-older-than) is export {
 
     my Str  $cache-dir  = $*HOME.Str;
-    given $dir-prefix {
-        when .starts-with('.')  { $cache-dir ~ '/' ~ $dir-prefix;                   }
-        default                 { $cache-dir ~ '/' ~ '.rakucache/' ~ $dir-prefix;   }
+    if $dir-prefix.starts-with('.') {
+        $cache-dir ~= '/' ~ $dir-prefix;
+    }
+    else {
+        $cache-dir ~= '/' ~ '.rakucache/' ~ $dir-prefix;
     }
 
     unless "$cache-dir".IO.e {
