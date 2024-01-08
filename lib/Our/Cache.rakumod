@@ -6,7 +6,7 @@ use  JSON::Fast;
 
 sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, Instant :$expire-older-than) is export {
 
-    my Str  $cache-dir  = $*HOME;
+    my Str  $cache-dir  = $*HOME.Str;
     given $dir-prefix {
         when .starts-with('.')  { $cache-dir ~ '/' ~ $dir-prefix;                   }
         default                 { $cache-dir ~ '/' ~ '.rakucache/' ~ $dir-prefix;   }
@@ -26,7 +26,9 @@ sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, I
     else {
         if "$path".IO.e {
             unlink $path    if $expire-older-than && "$path".IO.modified < $expire-older-than;
-            return from-json(base64-decode(decompressToBlob(slurp($path, :bin))).decode) if "$path".IO.e;
+            if "$path".IO.s {
+                return from-json(base64-decode(decompressToBlob(slurp($path, :bin))).decode);
+            }
         }
         return;
     }
