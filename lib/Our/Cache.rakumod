@@ -5,7 +5,12 @@ use  Compress::Bzip2;
 
 sub cache (Str:D :$meta!, Str :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, Instant :$expire-older-than) is export {
 
-    my Str  $cache-dir  = $*HOME ~ '/.rakucache/' ~ $dir-prefix;
+    my Str  $cache-dir  = $*HOME;
+    given $dir-prefix {
+        when .starts-with('.')  { $cache-dir ~ '/' ~ $dir-prefix;                   }
+        default                 { $cache-dir ~ '/' ~ '.rakucache/' ~ $dir-prefix;   }
+    }
+
     unless "$cache-dir".IO.e {
         mkdir $cache-dir;
         $cache-dir.IO.chmod(0o700);
