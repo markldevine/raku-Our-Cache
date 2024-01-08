@@ -19,22 +19,19 @@ sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, I
         $cache-dir.IO.chmod(0o700);
     }
 
-put $meta;
     my Str  $path       = $cache-dir ~ '/' ~ base64-encode($meta, :str);
 
     if $data {
-        spurt $path, compressToBlob(base64-encode(to-json($data)));
+        spurt $path, compressToBlob(to-json($data));
         $path.IO.chmod(0o600);
     }
     else {
         if "$path".IO.e {
             unlink $path    if $expire-older-than && "$path".IO.modified < $expire-older-than;
-            if "$path".IO.s {
-                return from-json(base64-decode(decompressToBlob(slurp($path, :bin))).decode);
-            }
+            return from-json(decompressToBlob(slurp($path, :bin))) if "$path".IO.s;
         }
-        return;
     }
+    return;
 }
 
 =finish
