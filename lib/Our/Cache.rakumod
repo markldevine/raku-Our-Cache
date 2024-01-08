@@ -18,9 +18,11 @@ sub cache (Str:D :$meta!, Str :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, 
         $path.IO.chmod(0o600);
     }
     else {
-        unlink $path    if $expire-older-than && "$path".IO.modified < $expire-older-than;
-        return          unless "$path".IO.e;
-        return base64-decode(decompressToBlob(slurp($path, :bin))).decode;
+        if "$path".IO.e {
+            unlink $path    if $expire-older-than && "$path".IO.modified < $expire-older-than;
+            return base64-decode(decompressToBlob(slurp($path, :bin))).decode if "$path".IO.e;
+        }
+        return;
     }
 }
 
