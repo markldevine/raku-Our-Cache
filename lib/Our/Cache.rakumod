@@ -3,7 +3,7 @@ unit module Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 use  Base64::Native;
 use  Compress::Bzip2;
 
-sub cache (Str:D :$meta!, Str :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, Instant :$expire-older-than = 0) is export {
+sub cache (Str:D :$meta!, Str :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, Instant :$expire-older-than) is export {
 
     my Str  $cache-dir  = $*HOME ~ '/.rakucache/' ~ $dir-prefix;
     unless "$cache-dir".IO.e {
