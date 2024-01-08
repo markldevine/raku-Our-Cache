@@ -19,6 +19,7 @@ sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, I
         $cache-dir.IO.chmod(0o700);
     }
 
+put $meta;
     my Str  $path       = $cache-dir ~ '/' ~ base64-encode($meta, :str);
 
     if $data {
