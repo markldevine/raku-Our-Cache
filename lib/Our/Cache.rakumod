@@ -4,8 +4,6 @@ use  Base64::Native;
 use  Compress::Bzip2;
 use  JSON::Fast;
 
-use Data::Dump::Tree;
-
 sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, Instant :$expire-older-than) is export {
 
     my Str  $cache-dir  = $*HOME.Str;
