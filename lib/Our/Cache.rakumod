@@ -22,10 +22,6 @@ sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, I
     my Str  $path       = $cache-dir ~ '/' ~ base64-encode($meta, :str);
 
     if $data {
-
-#   Type check failed in binding to parameter '$data'; expected Buf[uint8] but got Str ("\"-50000\"")
-#   Type check failed in binding to parameter '$data'; expected Buf[uint8] but got utf8 (utf8.new(34,45,53,48...)
-
         spurt $path, compressToBlob(base64-encode(to-json($data)));
         $path.IO.chmod(0o600);
     }
