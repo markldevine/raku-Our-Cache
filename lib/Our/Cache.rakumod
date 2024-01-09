@@ -4,6 +4,8 @@ use  Base64::Native;
 use  Compress::Bzip2;
 use  JSON::Fast;
 
+use Data::Dump::Tree;
+
 sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, Instant :$expire-older-than) is export {
 
     my Str  $cache-dir  = $*HOME.Str;
@@ -28,7 +30,7 @@ sub cache (Str:D :$meta!, Mu :$data, Str :$dir-prefix = $*PROGRAM.IO.basename, I
     else {
         if "$path".IO.e {
             unlink $path    if $expire-older-than && "$path".IO.modified < $expire-older-than;
-            return from-json(base64-decode(decompressToBlob(slurp($path, :bin))).decode) if "$path".IO.s;
+            return from-json(base64-decode(decompressToBlob(slurp($path, :bin))).decode);
         }
     }
     return;
