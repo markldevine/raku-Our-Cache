@@ -1,6 +1,32 @@
 unit module Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
-use  Base64::Native;
+#   - BREAK
+#   - sub cache-path
+#       - resolve the directory name and creates it if ! -d
+#       - convert the :$meta to base64
+#       - if .index ~~ :s
+#           - read
+#               given $path.IO.open {
+#                   .lock: :shared;  # Acquire a shared lock
+#                   my %data = from-json(.slurp);  # Read data
+#                   .close;  # Close the file
+#               }
+#               if :$meta entry found
+#                   - cache hit --> return the name..............
+#       - else
+#           - create/append
+#               my $index-fh = $path.IO.open(:a);
+#               $index-fh.lock;  # Acquire an exclusive lock
+#                   - create a new, unique, empty 8-character temp file in the directory
+#                       given $temp-path.IO.open(:w) {
+#                           .lock;  # Acquire an exclusive lock
+#                           .close;  # Close the file
+#                       }
+#               $index-fh.spurt: to-json(%data);  # Write data
+#               $index-fh.close;  # Close the file
+
+use Base64::Native;
+use JSON::Fast;
 
 sub cache-file-name (Str:D :$meta!, Str :$dir-prefix = $*PROGRAM.IO.basename) is export {
     my Str  $cache-dir  = $*HOME.Str;
