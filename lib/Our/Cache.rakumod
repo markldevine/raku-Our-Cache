@@ -51,15 +51,43 @@ sub our-cache-dir (Str :$subdir = $*PROGRAM.IO.basename) is export {
 #%%% 'multi sub(:$identifier)' for string users
 
 
+# read-only
+multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Instant :$expire-older-than) is export {
+    my $meta-id             = base64-encode($identifier, :str)
+    my $index-path          = $cache-dir ~ '/.index';
+    my $return-data;
+    my %index;
+    given $index-path.IO.open(:r) {
+        .lock: :shared;
+        %index  = from-json(.slurp) if $index-path.IO.s;
+        .close;
+    }
+    if %index{$meta-id}:exists {
+        my $data-file-path  = $cache-dir ~ '/' ~ %index{$meta-id};
+        unlink $data-file-path if $expire-older-than && $data-file-path.IO.modified < $expire-older-than;
+        if $data-file-path.IO.e || $data-file-path ~ '.bz2'.IO.e {
+            decompress($data-file-path ~ '.bz2') if $data-file-path ~ '.bz2'.IO.e;
+            $return-data = slurp($data-file-path);
+        }
+        else {
+            %index{$meta-id}:delete;
+            if %index.elems {
+                given $index-path.IO.open(:w) {
+                    .lock;
+                    .spurt(to-json(%index));
+                    .close;
+                }
+            }
+            else {
+                unlink($index-path);
+            }
+        }
+    }
+    return $return-data;
+}
 
-
-        multi this now, separating the use cases.....
-
-
-
-
-sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Str :$data, Instant :$expire-older-than) is export {
-#   die 'Get &our-cache-dir() first!' unless "$cache-dir".IO.d;
+# write
+multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Str:D :$data!, Instant :$expire-older-than) is export {
     my $meta-id             = base64-encode($identifier, :str)
     my $index-path          = $cache-dir ~ '/.index';
     my $return-data         = $data with $data;
@@ -132,12 +160,4 @@ sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Str :$da
 
 =finish
 
-    if "$cache-file-name".IO.e {
-        if $expire-older-than && "$cache-file-name".IO.modified < $expire-older-than {
-            unlink $cache-file-name if $expire-older-than && "$cache-file-name".IO.modified < $expire-older-than;
-        }
-        else {
-            return slurp $cache-file-name;
-        }
-    }
 }
