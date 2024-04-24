@@ -1,0 +1,24 @@
+#!/usr/bin/env raku
+
+use JSON::Fast;
+use Data::Dump::Tree;
+
+my $file-path = '/home/mdevine/github.com/raku-Our-Cache/examples/t.dat';
+
+given $file-path.IO.open(:rw) {
+    .lock;
+#   .seek(0, SeekFromBeginning);
+    if $file-path.IO.s {
+        my $json    = from-json(.slurp);
+        ddt $json;
+        unless $json<key2>:exists {
+            $json<key2> = 'value2';
+            .seek(0, SeekFromBeginning);
+            .spurt(to-json($json));
+        }
+    }
+    else {
+        .spurt(to-json({'key' => 'value'}));
+    }
+    .close;
+}
