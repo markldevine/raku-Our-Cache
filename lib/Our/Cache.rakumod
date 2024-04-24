@@ -51,11 +51,14 @@ sub our-cache-dir (Str :$subdir = $*PROGRAM.IO.basename) is export {
 #%%% 'multi sub(:$identifier)' for string users
 
 
+    GO WITH Lock (re-enterant, OS locking mechanisms).  Not Lock::Async.
+
+
+
 # read-only
 multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Instant :$expire-older-than) is export {
     my $meta-id             = base64-encode($identifier, :str)
     my $index-path          = $cache-dir ~ '/.index';
-    my $return-data;
     my %index;
     given $index-path.IO.open(:r) {
         .lock: :shared;
@@ -64,22 +67,40 @@ multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, In
     }
     if %index{$meta-id}:exists {
         my $data-file-path  = $cache-dir ~ '/' ~ %index{$meta-id};
-        unlink $data-file-path if $expire-older-than && $data-file-path.IO.modified < $expire-older-than;
-        if $data-file-path.IO.e || $data-file-path ~ '.bz2'.IO.e {
-            decompress($data-file-path ~ '.bz2') if $data-file-path ~ '.bz2'.IO.e;
-            $return-data = slurp($data-file-path);
+        if $data-file-path ~ '.bz2'.IO.e {
+            if $expire-older-than && $data-file-path ~ '.bz2'.IO.modified < $expire-older-than {
+                unlink $data-file-path ~ '.bz2';
+            }
+            else {
+                decompress($data-file-path ~ '.bz2');
+            }
         }
-        else {
-            %index{$meta-id}:delete;
-            if %index.elems {
-                given $index-path.IO.open(:w) {
-                    .lock;
-                    .spurt(to-json(%index));
-                    .close;
+        elsif $data-file-path.IO.e {
+            if $expire-older-than && $data-file-path.IO.modified < $expire-older-than {
+                unlink $data-file-path;
+                %index{$meta-id}:delete;
+                if %index.elems {
+                    given $index-path.IO.open(:w) {
+                        .lock;
+                        .spurt(to-json(%index));
+                        .close;
+                    }
                 }
             }
             else {
-                unlink($index-path);
+                unlink $data-file-path;
+                %index{$meta-id}:delete;
+                if %index.elems {
+                    given $index-path.IO.open(:w) {
+                        .lock;
+                        .spurt(to-json(%index));
+                        .close;
+                    }
+                }
+                else {
+                    unlink($index-path);
+                }
+                return Nil;
             }
         }
     }
@@ -87,7 +108,7 @@ multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, In
 }
 
 # write
-multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Str:D :$data!, Instant :$expire-older-than) is export {
+multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Str:D :$data!) is export {
     my $meta-id             = base64-encode($identifier, :str)
     my $index-path          = $cache-dir ~ '/.index';
     my $return-data         = $data with $data;
