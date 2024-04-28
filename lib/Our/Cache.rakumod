@@ -23,16 +23,17 @@ sub our-cache-dir (Str :$subdir = $*PROGRAM.IO.basename) is export {
 #%%% 'multi sub(:@identifier)' for convenience of run() or Proc users who are working with Array
 #%%% 'multi sub(:$identifier)' for string users
 
-# read-only
+# read
 multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Instant :$expire-older-than) is export {
     my $meta-id             = base64-encode($identifier, :str);
     my $index-path          = $cache-dir ~ '/.index';
     return Nil              unless $index-path.IO.s;
     my %index;
+    my $data-file-path;
     Lock.new.protect: {
         %index              = from-json(slurp($index-path));
         if %index{$meta-id}:exists {
-            my $data-file-path  = $cache-dir ~ '/' ~ %index{$meta-id};
+            $data-file-path = $cache-dir ~ '/' ~ %index{$meta-id};
             if $expire-older-than {
                 if "$data-file-path.bz2".IO.e {
                     if "$data-file-path.bz2".IO.modified < $expire-older-than {
@@ -46,15 +47,24 @@ multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, In
                         %index{$meta-id}:delete;
                     }
                 }
-                unless %index{$meta-id}:exists {
-                    if %index.elems {
-                        spurt($index-path, to-json(%index));
-                        return Nil;
-                    }
-                    else {
-                        unlink($index-path);
-                        return Nil;
-                    }
+            }
+        }
+
+# maybe the index & data file were both just deleted
+        return Nil          if %index{$meta-id}:!exists && ! "$data-file-path".IO.e;
+
+        if %index{$meta-id}:exists {
+
+# maybe the index exists, but the data file isn't there
+            unless "$data-file-path".IO.e || "$data-file-path.bz2".IO.e {
+                %index{$meta-id}:delete;
+                if %index.elems {
+                    spurt($index-path, to-json(%index));
+                    return Nil;
+                }
+                else {
+                    unlink($index-path);
+                    return Nil;
                 }
             }
             if "$data-file-path.bz2".IO.e {
