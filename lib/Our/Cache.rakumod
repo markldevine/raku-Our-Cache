@@ -1,5 +1,7 @@
 unit module Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
+#%%% consider Command::Async::Multi sending in 5000 at once...  Perhaps 'multi sub(:%id2data)' to address bulk proportions...
+
 use Base64::Native;
 use Compress::Bzip2;
 use JSON::Fast;
@@ -19,11 +21,11 @@ sub our-cache-dir (Str :$subdir = $*PROGRAM.IO.basename) is export {
     return $cache-dir;
 }
 
-#%%% consider Command::Async::Multi sending in 5000 at once...  Perhaps 'multi sub(:$data, :$identifier)' for standard updates & 'multi sub(:%id2data)' to address bulk updates...
-#%%% 'multi sub(:@identifier)' for convenience of run() or Proc users who are working with Array
-#%%% 'multi sub(:$identifier)' for string users
-
 # read
+multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :@identifier!, Instant :$expire-older-than) is export {
+    our-cache(:$cache-dir, :identifier(@identifier.join), :$expire-older-than);
+}
+
 multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, Instant :$expire-older-than) is export {
     my $meta-id             = base64-encode($identifier, :str);
     my $index-path          = $cache-dir ~ '/.index';
@@ -49,13 +51,8 @@ multi sub our-cache (Str :$cache-dir = &our-cache-dir(), Str:D :$identifier!, In
                 }
             }
         }
-
-# maybe the index & data file were both just deleted
         return Nil          if %index{$meta-id}:!exists && ! "$data-file-path".IO.e;
-
         if %index{$meta-id}:exists {
-
-# maybe the index exists, but the data file isn't there
             unless "$data-file-path".IO.e || "$data-file-path.bz2".IO.e {
                 %index{$meta-id}:delete;
                 if %index.elems {
