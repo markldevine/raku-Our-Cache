@@ -4,19 +4,11 @@ use lib '/home/mdevine/github.com/raku-Our-Cache/lib';
 use Our::Cache;
 
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
-
-#our-cache(:identifier('AAA'), :data('A' x 26));
-#run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
-#put our-cache(:identifier('AAA'));
-#our-cache(:identifier('AAA'), :data('B' x 26));
-#put our-cache(:identifier('AAA'));
-#my $data = our-cache(:identifier('AAA'), :expire-older-than(now));
-#put $data ?? $data !! '$data is empty';
+put '-' x 80;
+my %cache;
 
 for 'A' .. 'Z' -> $i {
-    our-cache(:identifier($i x 3), :data($i x ((1024 * 10) + 1)));
-#   our-cache(:identifier($i x 3), :data($i x ((1024 * 10) - 1)));
-    put our-cache(:identifier($i x 3));
+    %cache{$i x 3} = Our::Cache.new(:identifier($i x 3)).store(:data($i x ((1024 * 10) + 1)));
 }
 
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;

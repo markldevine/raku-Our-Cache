@@ -17,21 +17,22 @@ has             %.index;
 has Str         $.subdir                = $*PROGRAM.IO.basename;
 
 constant        \DATA-FILE-NAME-LENGTH  = 16;
+constant        \MAX-DATA-FILE-SIZE     = 10 * 1024;
 
 submethod TWEAK {
     if $!subdir.starts-with('/') {
-        $cache-dir ~= $subdir;
+        $!cache-dir ~= $!subdir;
     }
     else {
-        $cache-dir ~= '/' ~ '.rakucache/' ~ $subdir;
+        $!cache-dir ~= '/' ~ '.rakucache/' ~ $!subdir;
     }
-    unless "$cache-dir".IO.e {
-        mkdir "$cache-dir";
-        "$cache-dir".IO.chmod(0o700);
+    unless "$!cache-dir".IO.e {
+        mkdir "$!cache-dir";
+        "$!cache-dir".IO.chmod(0o700);
     }
-    $!identifier64          = base64-encode($.identifier, :str);
-    $!index-path            = $cache-dir ~ '/.index';
-    %!index                 = from-json(slurp("$index-path")) if "$!index-path".IO.e;
+    $!identifier64          = base64-encode($!identifier, :str);
+    $!index-path            = $!cache-dir ~ '/.index';
+    %!index                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
 }
 
 #%%%    multi method fetch-fh
@@ -56,7 +57,7 @@ multi method fetch {
         %!index{$!identifier64}:delete;
         if %!index.elems {
             spurt($!index-path, to-json(%!index))           or die;
-            "$index-path".IO.chmod(0o600)                   or die;
+            "$!index-path".IO.chmod(0o600)                  or die;
         }
         else {
             unlink($!index-path);
@@ -65,7 +66,7 @@ multi method fetch {
     }
 
     if "$data-file-path.bz2".IO.e {
-        decompress("$data-file-path.bz2")                   or die;
+        decompress("$data-file-path.bz2");
         my $return-data                                     = slurp($data-file-path) or die;
         unlink($data-file-path)                             or die;
         return $return-data;
@@ -73,39 +74,39 @@ multi method fetch {
     return slurp($data-file-path);
 }
 
-subset Cache-File-Name of Str where *.chars ~~ / ^ <["a".."z","A".."Z",0..9]> ** DATA-FILE-NAME-LENGTH $ /;
+subset Cache-File-Name of Str where *.chars ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAME-LENGTH} $ /;
 
 #%%%    multi method store-fh (IO::Handle:D :$fh!)
 multi method store (Str:D :$data!, :$cache-file-name) {
     if $cache-file-name {
         die 'Illegal $cache-file-name name!  <' ~ $cache-file-name ~ '>' unless $cache-file-name ~~ Cache-File-Name;
     }
-    if %index{$!identifier64}:exists {
+    if %!index{$!identifier64}:exists {
         if $cache-file-name {
-            if %index{$!identifier64} ne $cache-file-name {
-                my $data-file-path                          = $cache-dir ~ '/' ~ %index{$!identifier64};
+            if %!index{$!identifier64} ne $cache-file-name {
+                my $data-file-path                          = $!cache-dir ~ '/' ~ %!index{$!identifier64};
                 unlink("$data-file-path")                   if "$data-file-path".IO.e;
                 unlink("$data-file-path.bz2")               if "$data-file-path.bz2".IO.e;
-                %index{$!identifier64}                      = $cache-file-name;
-                $data-file-path                             = $cache-dir ~ '/' ~ %index{$!identifier64};
+                %!index{$!identifier64}                     = $cache-file-name;
+                $data-file-path                             = $!cache-dir ~ '/' ~ %!index{$!identifier64};
                 spurt($!index-path, to-json(%!index))       or die;
-                "$index-path".IO.chmod(0o600)               or die;
+                "$!index-path".IO.chmod(0o600)              or die;
                 spurt("$data-file-path", $data)             or die;
                 "$data-file-path".IO.chmod(0o600)           or die;
-                if $data.chars > (10 * 1024) {
-                    compress("$data-file-path")             or die;
+                if $data.chars > MAX-DATA-FILE-SIZE {
+                    compress("$data-file-path");
                     "$data-file-path.bz2".IO.chmod(0o600)   or die;
                     unlink("$data-file-path")               or die;
                 }
             }
         }
         else {
-            my $data-file-path                              = $cache-dir ~ '/' ~ %index{$!identifier64};
+            my $data-file-path                              = $!cache-dir ~ '/' ~ %!index{$!identifier64};
             unlink "$data-file-path.bz2"                    if "$data-file-path.bz2".IO.e;
             spurt("$data-file-path", $data)                 or die;
             "$data-file-path".IO.chmod(0o600)               or die;
-            if $data.chars > (10 * 1024) {
-                compress("$data-file-path")                 or die;
+            if $data.chars > MAX-DATA-FILE-SIZE {
+                compress("$data-file-path");
                 "$data-file-path.bz2".IO.chmod(0o600)       or die;
                 unlink("$data-file-path")                   or die;
             }
@@ -119,14 +120,14 @@ multi method store (Str:D :$data!, :$cache-file-name) {
         else {
             $data-file-name                                 = self.generate-cache-file-name;
         }
-        %index{$!identifier64}                              = $data-file-name;
-        spurt($!index-path, to-json(%index))                or die;
-        "$index-path".IO.chmod(0o600)                       or die;
-        my $data-file-path                                  = $cache-dir ~ '/' ~ %index{$!identifier64};
+        %!index{$!identifier64}                             = $data-file-name;
+        spurt($!index-path, to-json(%!index))               or die;
+        "$!index-path".IO.chmod(0o600)                      or die;
+        my $data-file-path                                  = $!cache-dir ~ '/' ~ %!index{$!identifier64};
         spurt("$data-file-path", $data)                     or die;
         "$data-file-path".IO.chmod(0o600)                   or die;
-        if $data.chars > (10 * 1024) {
-            compress("$data-file-path")                     or die;
+        if $data.chars > MAX-DATA-FILE-SIZE {
+            compress("$data-file-path");
             "$data-file-path.bz2".IO.chmod(0o600)           or die;
             unlink("$data-file-path")                       or die;
         }
