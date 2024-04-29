@@ -14,8 +14,8 @@ run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 #put $data ?? $data !! '$data is empty';
 
 for 'A' .. 'Z' -> $i {
-#   our-cache(:identifier($i x 3), :data($i x ((1024 * 10) + 1)));
-    our-cache(:identifier($i x 3), :data($i x ((1024 * 10) - 1)));
+    our-cache(:identifier($i x 3), :data($i x ((1024 * 10) + 1)));
+#   our-cache(:identifier($i x 3), :data($i x ((1024 * 10) - 1)));
     put our-cache(:identifier($i x 3));
 }
 
