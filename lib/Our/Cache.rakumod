@@ -36,38 +36,34 @@ submethod TWEAK {
 
 #%%%    multi method fetch-fh
 multi method fetch {
-    return Nil              unless "$!index-path".IO.s;
+
+    return Nil                                              unless "$!index-path".IO.e;
+
     my $data-file-path;
     if %!index{$!identifier64}:exists {
-        $data-file-path = $!cache-dir ~ '/' ~ %!index{$!identifier64};
+        $data-file-path                                     = $!cache-dir ~ '/' ~ %!index{$!identifier64};
         if $!expire-older-than {
             if "$data-file-path.bz2".IO.e {
-                if "$data-file-path.bz2".IO.modified < $!expire-older-than {
-                    unlink "$data-file-path.bz2";
-                    %!index{$!identifier64}:delete;
-                }
+                unlink "$data-file-path.bz2"                if "$data-file-path.bz2".IO.modified < $!expire-older-than;
             }
             if "$data-file-path".IO.e {
-                if "$data-file-path".IO.modified < $!expire-older-than {
-                    unlink $data-file-path;
-                    %!index{$!identifier64}:delete;
-                }
+                unlink $data-file-path                      if "$data-file-path".IO.modified < $!expire-older-than;
             }
         }
     }
-    return Nil          unless %!index{$!identifier64}:exists;
+
     unless "$data-file-path".IO.e || "$data-file-path.bz2".IO.e {
         %!index{$!identifier64}:delete;
         if %!index.elems {
             spurt($!index-path, to-json(%!index))           or die;
             "$index-path".IO.chmod(0o600)                   or die;
-            return Nil;
         }
         else {
             unlink($!index-path);
-            return Nil;
         }
+        return Nil;
     }
+
     if "$data-file-path.bz2".IO.e {
         decompress("$data-file-path.bz2")                   or die;
         my $return-data                                     = slurp($data-file-path) or die;
@@ -80,7 +76,10 @@ multi method fetch {
 subset Cache-File-Name of Str where *.chars ~~ / ^ <["a".."z","A".."Z",0..9]> ** DATA-FILE-NAME-LENGTH $ /;
 
 #%%%    multi method store-fh (IO::Handle:D :$fh!)
-multi method store (Str:D :$data! where *.chars > 0, Cache-File-Name :$cache-file-name) {
+multi method store (Str:D :$data!, :$cache-file-name) {
+    if $cache-file-name {
+        die 'Illegal $cache-file-name name!  <' ~ $cache-file-name ~ '>' unless $cache-file-name ~~ Cache-File-Name;
+    }
     if %index{$!identifier64}:exists {
         if $cache-file-name {
             if %index{$!identifier64} ne $cache-file-name {
@@ -110,6 +109,7 @@ multi method store (Str:D :$data! where *.chars > 0, Cache-File-Name :$cache-fil
                 "$data-file-path.bz2".IO.chmod(0o600)       or die;
                 unlink("$data-file-path")                   or die;
             }
+        }
     }
     else {
         my $data-file-name;
@@ -120,11 +120,11 @@ multi method store (Str:D :$data! where *.chars > 0, Cache-File-Name :$cache-fil
             $data-file-name                                 = self.generate-cache-file-name;
         }
         %index{$!identifier64}                              = $data-file-name;
+        spurt($!index-path, to-json(%index))                or die;
+        "$index-path".IO.chmod(0o600)                       or die;
         my $data-file-path                                  = $cache-dir ~ '/' ~ %index{$!identifier64};
         spurt("$data-file-path", $data)                     or die;
         "$data-file-path".IO.chmod(0o600)                   or die;
-        spurt($!index-path, to-json(%index))                or die;
-        "$index-path".IO.chmod(0o600)                       or die;
         if $data.chars > (10 * 1024) {
             compress("$data-file-path")                     or die;
             "$data-file-path.bz2".IO.chmod(0o600)           or die;
