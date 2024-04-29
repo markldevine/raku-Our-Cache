@@ -37,11 +37,9 @@ submethod TWEAK {
 
 #%%%    multi method fetch-fh
 multi method fetch {
-
     return Nil                                              unless "$!index-path".IO.e;
     %!index                                                 = ();
     %!index                                                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
-
     my $data-file-path;
     if %!index{$!identifier64}:exists {
         $data-file-path                                     = $!cache-dir ~ '/' ~ %!index{$!identifier64};
@@ -54,7 +52,6 @@ multi method fetch {
             }
         }
     }
-
     unless "$data-file-path".IO.e || "$data-file-path.bz2".IO.e {
         %!index{$!identifier64}:delete;
         if %!index.elems {
@@ -66,7 +63,6 @@ multi method fetch {
         }
         return Nil;
     }
-
     if "$data-file-path.bz2".IO.e {
         decompress("$data-file-path.bz2");
         my $return-data                                     = slurp($data-file-path) or die;
@@ -89,7 +85,6 @@ multi method store (Str:D :$data!, :$cache-file-name) {
         if $cache-file-name {
             if %!index{$!identifier64} ne $cache-file-name {
                 my $data-file-path                          = $!cache-dir ~ '/' ~ %!index{$!identifier64};
-put 'unlink("' ~ $data-file-path ~ '")';
                 unlink("$data-file-path")                   if "$data-file-path".IO.e;
                 unlink("$data-file-path.bz2")               if "$data-file-path.bz2".IO.e;
                 %!index{$!identifier64}                     = $cache-file-name;
