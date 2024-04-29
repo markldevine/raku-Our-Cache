@@ -39,6 +39,8 @@ submethod TWEAK {
 multi method fetch {
 
     return Nil                                              unless "$!index-path".IO.e;
+    %!index                                                 = ();
+    %!index                                                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
 
     my $data-file-path;
     if %!index{$!identifier64}:exists {
@@ -74,17 +76,20 @@ multi method fetch {
     return slurp($data-file-path);
 }
 
-subset Cache-File-Name of Str where *.chars ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAME-LENGTH} $ /;
+subset Cache-File-Name of Str where $_ ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAME-LENGTH} $ /;
 
 #%%%    multi method store-fh (IO::Handle:D :$fh!)
 multi method store (Str:D :$data!, :$cache-file-name) {
     if $cache-file-name {
         die 'Illegal $cache-file-name name!  <' ~ $cache-file-name ~ '>' unless $cache-file-name ~~ Cache-File-Name;
     }
+    %!index                                                 = ();
+    %!index                                                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
     if %!index{$!identifier64}:exists {
         if $cache-file-name {
             if %!index{$!identifier64} ne $cache-file-name {
                 my $data-file-path                          = $!cache-dir ~ '/' ~ %!index{$!identifier64};
+put 'unlink("' ~ $data-file-path ~ '")';
                 unlink("$data-file-path")                   if "$data-file-path".IO.e;
                 unlink("$data-file-path.bz2")               if "$data-file-path.bz2".IO.e;
                 %!index{$!identifier64}                     = $cache-file-name;
