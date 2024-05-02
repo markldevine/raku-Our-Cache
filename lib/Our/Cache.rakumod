@@ -34,8 +34,51 @@ submethod TWEAK {
         mkdir "$!cache-dir";
         "$!cache-dir".IO.chmod(0o700);
     }
+    self!init;
+    my Bool $changed;
+    for %!index.keys -> $id {
+        unless "$!cache-dir/$id".IO.e || "$!cache-dir/$id.bz2".IO.e {
+            %!index{$id}:delete;
+            $changed = True;
+        }
+    }
+    if $changed {
+        spurt($!index-path, to-json(%!index))   or die;
+        "$!index-path".IO.chmod(0o600)          or die;
+    }
+    my %v;
+    for %!index.values -> $v {
+        %v{$v} = 0;
+    }
+    my $cwd                     = $*CWD;
+    chdir "$!cache-dir";
+    for dir(test => { $_ ~~ Cache-File-Name }) -> $cache-file {
+        unlink $cache-file unless %v{$cache-file}:exists;
+    }
+    chdir "$cwd";
+}
+
+method identifier ($identifier?) {
+    with $identifier {
+        my $id;
+        if $identifier ~~ Positional {
+            $id                 = $identifier.list.join;
+        }
+        else {
+            $id                 = $identifier;
+        }
+        if $id ne $!identifier {
+            $!identifier        = $id;
+            self!init;
+        }
+    }
+    return $!identifier;
+}
+
+method !init {
     $!identifier64              = base64-encode($!identifier, :str);
     $!index-path                = $!cache-dir ~ '/.index';
+    return Nil                  unless "$!index-path".IO.e;
     %!index                     = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
     if %!index{$!identifier64}:exists {
         $!cache-file-name       = %!index{$!identifier64};
@@ -52,8 +95,9 @@ submethod TWEAK {
 }
 
 #%%%    multi method fetch-fh
-multi method fetch {
+multi method fetch (Str :$identifier) {
     return Nil                                      unless "$!index-path".IO.e;
+    self.identifier($identifier)                    with $identifier;
     %!index                                         = ();
     %!index                                         = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
     return Nil                                      unless %!index{$!identifier64}:exists;
@@ -88,7 +132,8 @@ multi method fetch {
 }
 
 #%%%    multi method store-fh (IO::Handle:D :$fh!)
-multi method store (Str:D :$data!) {
+multi method store (Str:D :$data!, Str :$identifier) {
+    self.identifier($identifier)                    with $identifier;
     %!index                                         = ();
     %!index                                         = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
     if %!index{$!identifier64}:!exists || %!index{$!identifier64} ne $!cache-file-name {
