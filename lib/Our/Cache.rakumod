@@ -15,6 +15,7 @@ subset Cache-File-Name of Str where $_ ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAM
 
 has Str             $.cache-dir             = $*HOME.Str;
 has Cache-File-Name $.cache-file-name;
+has Str             $.cache-file-path;                                  # %%% is built...
 has Instant         $.expire-older-than;
 has Str             $.identifier            is required;
 has Str             $.identifier64;
@@ -24,25 +25,30 @@ has Str             $.subdir                = $*PROGRAM.IO.basename;
 
 submethod TWEAK {
     if $!subdir.starts-with('/') {
-        $!cache-dir ~= $!subdir;
+        $!cache-dir            ~= $!subdir;
     }
     else {
-        $!cache-dir ~= '/' ~ '.rakucache/' ~ $!subdir;
+        $!cache-dir            ~= '/' ~ '.rakucache/' ~ $!subdir;
     }
     unless "$!cache-dir".IO.e {
         mkdir "$!cache-dir";
         "$!cache-dir".IO.chmod(0o700);
     }
-    $!identifier64          = base64-encode($!identifier, :str);
-    $!index-path            = $!cache-dir ~ '/.index';
-    %!index                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
+    $!identifier64              = base64-encode($!identifier, :str);
+    $!index-path                = $!cache-dir ~ '/.index';
+    %!index                     = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
     if %!index{$!identifier64}:exists {
-        $!cache-file-name    = %!index{$!identifier64};
+        $!cache-file-name       = %!index{$!identifier64};
     }
     else {
-        $!cache-file-name = self!generate-cache-file-name;
+        loop (my $i = 0; $i < 10; $i++) {
+            $!cache-file-name   = ("a".."z","A".."Z",0..9).flat.roll(DATA-FILE-NAME-LENGTH).join;
+            last                if !"$!cache-dir/$!cache-file-name".IO.e && !"$!cache-dir/$!cache-file-name.bz2".IO.e;
+            $!cache-file-name   = '';
+        }
+        die                     unless $!cache-file-name;
     }
-    $!cache-file-path       = $!cache-dir ~ '/' ~ $!cache-file-name;
+    $!cache-file-path           = $!cache-dir ~ '/' ~ $!cache-file-name;
 }
 
 #%%%    multi method fetch-fh
@@ -51,7 +57,7 @@ multi method fetch {
     %!index                                         = ();
     %!index                                         = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
     return Nil                                      unless %!index{$!identifier64}:exists;
-    my $!cache-file-name                            = %!index{$!identifier64};
+    $!cache-file-name                               = %!index{$!identifier64};
     $!cache-file-path                               = $!cache-dir ~ '/' ~ $!cache-file-name;
     if $!expire-older-than {
         if "$!cache-file-path.bz2".IO.e {
@@ -92,7 +98,7 @@ multi method store (Str:D :$data!) {
     }
     spurt("$!cache-file-path", $data)               or die;
     "$!cache-file-path".IO.chmod(0o600)             or die;
-    if $"$!cache-file-path".IO.s > MAX-CACHE-DATA-FILE-SIZE {
+    if "$!cache-file-path".IO.s > MAX-CACHE-DATA-FILE-SIZE {
         compress("$!cache-file-path");
         die unless "$!cache-file-path.bz2".IO.e;
         "$!cache-file-path.bz2".IO.chmod(0o600)     or die;
@@ -100,16 +106,5 @@ multi method store (Str:D :$data!) {
     }
 }
 
-method generate-cache-path {
-    return $!cache-dir ~ '/' ~ self!generate-cache-file-name;
-}
-
-method !generate-cache-file-name {
-    loop (my $i = 0; $i < 10; $i++) {
-        my $data-file-name      = ("a".."z","A".."Z",0..9).flat.roll(DATA-FILE-NAME-LENGTH).join;
-        return $data-file-name  if !"$!cache-dir/$data-file-name".IO.e && !"$!cache-dir/$data-file-name.bz2".IO.e;
-    }
-    die;
-}
 
 =finish

@@ -3,16 +3,17 @@
 use lib '/home/mdevine/github.com/raku-Our-Cache/lib';
 use Our::Cache;
 
-my $cache = Our::Cache.new(:identifier<TESTID>);
-put $cache.generate-cache-path;
+my $cache   = Our::Cache.new(:identifier<TESTID>);
+$cache.store(:data<BBBBBBBBBBBBB>);
+$cache.store(:data<AAAAAAAAAAAAA>);
+put $cache.fetch;
 
 
 
-
+run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 
 =finish
 
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 put '-' x 80;
 my %cache;
 
