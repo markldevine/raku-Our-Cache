@@ -7,24 +7,21 @@ run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 put '-' x 80;
 
 my $cache   = Our::Cache.new(:identifier<A>);
+
 $cache.store(:data<AAAAAAAAAAAAA>);
+run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
+put '-' x 80;
+
 $cache.store(:data<aaaaaaaaaaaaa>, :identifier(<A>));
-
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
+put '-' x 80;
 
-=finish
-
-my %cache;
-
-for 'A' .. 'B' -> $i {
-    %cache{$i x 3} = Our::Cache.new(:identifier($i x 3))
-}
-
-for 'A' .. 'B' -> $i {
-    my $cache-file-name = %cache{$i x 3}.generate-cache-file-name;
-    %cache{$i x 3}.store(:data($i x ((1024 * 10) + 1)), :$cache-file-name);
-}
-
+$cache.store(:data<BBBBBBBBBBBBB>, :identifier(<B>));
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
+put '-' x 80;
+
+$cache.store(:data<bbbbbbbbbbbbb>, :identifier(<B>));
+run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
+put '-' x 80;
 
 =finish
