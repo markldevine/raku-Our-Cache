@@ -2,22 +2,25 @@ use OO::Monitors;
 
 unit monitor Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
-#%%% consider Command::Async::Multi sending in 5000 at once...  Perhaps 'multi sub(:%id2data)' to address bulk proportions...
+#%%%    Consider Command::Async::Multi sending in 5000 at once...  Perhaps Our::Cache::Multi...?
 
 use Base64::Native;
 use Compress::Bzip2;
 use JSON::Fast;
 
-has Str         $.cache-dir             = $*HOME.Str;
-has Instant     $.expire-older-than;
-has Str         $.identifier;
-has Str         $.identifier64;
-has Str         $!index-path;
-has             %.index;
-has Str         $.subdir                = $*PROGRAM.IO.basename;
+constant        \DATA-FILE-NAME-LENGTH      = 16;
+constant        \MAX-CACHE-DATA-FILE-SIZE   = 10 * 1024;
 
-constant        \DATA-FILE-NAME-LENGTH  = 16;
-constant        \MAX-DATA-FILE-SIZE     = 10 * 1024;
+subset Cache-File-Name of Str where $_ ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAME-LENGTH} $ /;
+
+has Str             $.cache-dir             = $*HOME.Str;
+has Cache-File-Name $.cache-file-name;
+has Instant         $.expire-older-than;
+has Str             $.identifier            is required;
+has Str             $.identifier64;
+has Str             $!index-path;
+has                 %.index;
+has Str             $.subdir                = $*PROGRAM.IO.basename;
 
 submethod TWEAK {
     if $!subdir.starts-with('/') {
@@ -33,108 +36,75 @@ submethod TWEAK {
     $!identifier64          = base64-encode($!identifier, :str);
     $!index-path            = $!cache-dir ~ '/.index';
     %!index                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
+    if %!index{$!identifier64}:exists {
+        $!cache-file-name    = %!index{$!identifier64};
+    }
+    else {
+        $!cache-file-name = self!generate-cache-file-name;
+    }
+    $!cache-file-path       = $!cache-dir ~ '/' ~ $!cache-file-name;
 }
 
 #%%%    multi method fetch-fh
 multi method fetch {
-    return Nil                                              unless "$!index-path".IO.e;
-    %!index                                                 = ();
-    %!index                                                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
-    my $data-file-path;
-    if %!index{$!identifier64}:exists {
-        $data-file-path                                     = $!cache-dir ~ '/' ~ %!index{$!identifier64};
-        if $!expire-older-than {
-            if "$data-file-path.bz2".IO.e {
-                unlink "$data-file-path.bz2"                if "$data-file-path.bz2".IO.modified < $!expire-older-than;
-            }
-            if "$data-file-path".IO.e {
-                unlink $data-file-path                      if "$data-file-path".IO.modified < $!expire-older-than;
-            }
+    return Nil                                      unless "$!index-path".IO.e;
+    %!index                                         = ();
+    %!index                                         = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
+    return Nil                                      unless %!index{$!identifier64}:exists;
+    my $!cache-file-name                            = %!index{$!identifier64};
+    $!cache-file-path                               = $!cache-dir ~ '/' ~ $!cache-file-name;
+    if $!expire-older-than {
+        if "$!cache-file-path.bz2".IO.e {
+            unlink "$!cache-file-path.bz2"          if "$!cache-file-path.bz2".IO.modified < $!expire-older-than;
+        }
+        if "$!cache-file-path".IO.e {
+            unlink $!cache-file-path                if "$!cache-file-path".IO.modified < $!expire-older-than;
         }
     }
-    unless "$data-file-path".IO.e || "$data-file-path.bz2".IO.e {
+    unless "$!cache-file-path".IO.e || "$!cache-file-path.bz2".IO.e {
         %!index{$!identifier64}:delete;
         if %!index.elems {
-            spurt($!index-path, to-json(%!index))           or die;
-            "$!index-path".IO.chmod(0o600)                  or die;
+            spurt($!index-path, to-json(%!index))   or die;
+            "$!index-path".IO.chmod(0o600)          or die;
         }
         else {
             unlink($!index-path);
         }
         return Nil;
     }
-    if "$data-file-path.bz2".IO.e {
-        decompress("$data-file-path.bz2");
-        my $return-data                                     = slurp($data-file-path) or die;
-        unlink($data-file-path)                             or die;
+    if "$!cache-file-path.bz2".IO.e {
+        decompress("$!cache-file-path.bz2");
+        my $return-data                             = slurp($!cache-file-path) or die;
+        unlink($!cache-file-path)                   or die;
         return $return-data;
     }
-    return slurp($data-file-path);
+    return slurp($!cache-file-path);
 }
-
-subset Cache-File-Name of Str where $_ ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAME-LENGTH} $ /;
 
 #%%%    multi method store-fh (IO::Handle:D :$fh!)
-multi method store (Str:D :$data!, :$cache-file-name) {
-    if $cache-file-name {
-        die 'Illegal $cache-file-name name!  <' ~ $cache-file-name ~ '>' unless $cache-file-name ~~ Cache-File-Name;
+multi method store (Str:D :$data!) {
+    %!index                                         = ();
+    %!index                                         = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
+    if %!index{$!identifier64}:!exists || %!index{$!identifier64} ne $!cache-file-name {
+        %!index{$!identifier64}                     = $!cache-file-name;
+        spurt($!index-path, to-json(%!index))       or die;
+        "$!index-path".IO.chmod(0o600)              or die;
     }
-    %!index                                                 = ();
-    %!index                                                 = from-json(slurp("$!index-path")) if "$!index-path".IO.e;
-    if %!index{$!identifier64}:exists {
-        if $cache-file-name {
-            if %!index{$!identifier64} ne $cache-file-name {
-                my $data-file-path                          = $!cache-dir ~ '/' ~ %!index{$!identifier64};
-                unlink("$data-file-path")                   if "$data-file-path".IO.e;
-                unlink("$data-file-path.bz2")               if "$data-file-path.bz2".IO.e;
-                %!index{$!identifier64}                     = $cache-file-name;
-                $data-file-path                             = $!cache-dir ~ '/' ~ %!index{$!identifier64};
-                spurt($!index-path, to-json(%!index))       or die;
-                "$!index-path".IO.chmod(0o600)              or die;
-                spurt("$data-file-path", $data)             or die;
-                "$data-file-path".IO.chmod(0o600)           or die;
-                if $data.chars > MAX-DATA-FILE-SIZE {
-                    compress("$data-file-path");
-                    "$data-file-path.bz2".IO.chmod(0o600)   or die;
-                    unlink("$data-file-path")               or die;
-                }
-            }
-        }
-        else {
-            my $data-file-path                              = $!cache-dir ~ '/' ~ %!index{$!identifier64};
-            unlink "$data-file-path.bz2"                    if "$data-file-path.bz2".IO.e;
-            spurt("$data-file-path", $data)                 or die;
-            "$data-file-path".IO.chmod(0o600)               or die;
-            if $data.chars > MAX-DATA-FILE-SIZE {
-                compress("$data-file-path");
-                "$data-file-path.bz2".IO.chmod(0o600)       or die;
-                unlink("$data-file-path")                   or die;
-            }
-        }
-    }
-    else {
-        my $data-file-name;
-        with $cache-file-name {
-            $data-file-name                                 = $cache-file-name;
-        }
-        else {
-            $data-file-name                                 = self.generate-cache-file-name;
-        }
-        %!index{$!identifier64}                             = $data-file-name;
-        spurt($!index-path, to-json(%!index))               or die;
-        "$!index-path".IO.chmod(0o600)                      or die;
-        my $data-file-path                                  = $!cache-dir ~ '/' ~ %!index{$!identifier64};
-        spurt("$data-file-path", $data)                     or die;
-        "$data-file-path".IO.chmod(0o600)                   or die;
-        if $data.chars > MAX-DATA-FILE-SIZE {
-            compress("$data-file-path");
-            "$data-file-path.bz2".IO.chmod(0o600)           or die;
-            unlink("$data-file-path")                       or die;
-        }
+    spurt("$!cache-file-path", $data)               or die;
+    "$!cache-file-path".IO.chmod(0o600)             or die;
+    if $"$!cache-file-path".IO.s > MAX-CACHE-DATA-FILE-SIZE {
+        compress("$!cache-file-path");
+        die unless "$!cache-file-path.bz2".IO.e;
+        "$!cache-file-path.bz2".IO.chmod(0o600)     or die;
+        unlink("$!cache-file-path")                 or die;
     }
 }
 
-method generate-cache-file-name {
+method generate-cache-path {
+    return $!cache-dir ~ '/' ~ self!generate-cache-file-name;
+}
+
+method !generate-cache-file-name {
     loop (my $i = 0; $i < 10; $i++) {
         my $data-file-name      = ("a".."z","A".."Z",0..9).flat.roll(DATA-FILE-NAME-LENGTH).join;
         return $data-file-name  if !"$!cache-dir/$data-file-name".IO.e && !"$!cache-dir/$data-file-name.bz2".IO.e;
