@@ -6,19 +6,17 @@ use Our::Cache;
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 put '-' x 80;
 
-my $cache   = Our::Cache.new(:identifier<A>);
+my $cache   = Our::Cache.new;
 
-$cache.store(:data<AAAAAAAAAAAAA>);
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
-put '-' x 80;
-
-$cache.store(:data<aaaaaaaaaaaaa>, :identifier(<A>));
+$cache.store(:identifier<A>, :data<AAAAAAAAAAAAA>);
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 put '-' x 80;
 
 $cache.store(:data<BBBBBBBBBBBBB>, :identifier(<B>));
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 put '-' x 80;
+
+=finish
 
 $cache.store(:data<bbbbbbbbbbbbb>, :identifier(<B>));
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
