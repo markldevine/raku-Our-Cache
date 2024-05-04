@@ -16,8 +16,6 @@ $cache.store(:data<BBBBBBBBBBBBB>, :identifier(<B>));
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 put '-' x 80;
 
-=finish
-
 $cache.store(:data<bbbbbbbbbbbbb>, :identifier(<B>));
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>;
 put '-' x 80;
