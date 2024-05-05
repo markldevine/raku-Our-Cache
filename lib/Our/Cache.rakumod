@@ -35,22 +35,22 @@ submethod TWEAK {
     }
     unless $!cache-dir.e {
         $!cache-dir.mkdir(:mode(0o700));
-#       $!cache-dir.chmod(0o700);
+        $!cache-dir.chmod(0o700);
     }
-    $!index-path                = $!cache-dir.add: '.index';
-    %!index                     = ();
-    %!index                     = from-json($!index-path.slurp(:close)) if $!index-path.e;
+    $!index-path                            = $!cache-dir.add: '.index';
+    %!index                                 = ();
+    %!index                                 = from-json($!index-path.slurp(:close)) if $!index-path.e;
     my Bool $changed;
     for %!index.keys -> $id64 {
         if %!index{$id64} !~~ Cache-File-Name {
             %!index{$id64}:delete;
-            $changed = True;
+            $changed                        = True;
             next;
         }
         my IO::Path $cache-path = $!cache-dir.add: %!index{$id64};
         unless $cache-path.e || "$cache-path.bz2".IO.e {
             %!index{$id64}:delete;
-            $changed = True;
+            $changed                        = True;
         }
     }
     if $changed {
@@ -125,13 +125,15 @@ method fetch-fh (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-
         }
         return Nil;
     }
+    my IO::Handle $fh;
     if "$!cache-file-path.bz2".IO.e {
-        decompress("$!cache-file-path.bz2");
-        my $return-data                             = $!cache-file-path.slurp(:close) or die;
-        unlink $!cache-file-path                    or die;
-        return $return-data;
+        my $proc                                    = run '/usr/bin/bunzip2', '-c', $!cache-file-path.Str ~ '.bz2', :out;
+        $fh                                         = $proc.out;
     }
-    return $!cache-file-path.slurp(:close);
+    else {
+        $fh                                         = open :r, $!cache-file-path;
+    }
+    return $fh;
 }
 
 method fetch (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
