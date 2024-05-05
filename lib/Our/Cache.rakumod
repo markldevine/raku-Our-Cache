@@ -152,7 +152,7 @@ multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
         $!index-path.chmod(0o600)                   or die;
     }
     my $cache-file                                  = open :w, $!cache-file-path;
-    while $fh.lines -> $record {
+    while $fh.get -> $record {
         $cache-file.put($record);
     }
     $cache-file.close;
