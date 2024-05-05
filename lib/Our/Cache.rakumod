@@ -102,7 +102,7 @@ method identifier ($identifier?) {
     return $!identifier;
 }
 
-method cache-will-hit (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
+method cache-will-hit (Str:D :$identifier!, Instant :$purge-older-than = $!purge-older-than) {
     return False                                     unless "$!index-path".IO.e;
     self.identifier($identifier)                    with $identifier;
     if $purge-older-than {
@@ -127,7 +127,7 @@ method cache-will-hit (Str:D :$identifier, Instant :$purge-older-than = $!purge-
     return True;
 }
 
-method fetch-fh (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
+method fetch-fh (Str:D :$identifier!, Instant :$purge-older-than = $!purge-older-than) {
     return                                          unless self.cache-will-hit(:$identifier, :$purge-older-than);
     my IO::Handle $fh;
     if "$!cache-file-path.bz2".IO.e {
@@ -144,8 +144,32 @@ method fetch (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-tha
     return slurp(self.fetch-fh(:$identifier, :$purge-older-than), :close);
 }
 
-#%%%    multi method store-fh (IO::Handle:D :$fh!)
-multi method store (Str:D :$identifier, Str:D :$data!) {
+multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
+    self.identifier($identifier)                    with $identifier;
+    if %!index{$!identifier64}:!exists || %!index{$!identifier64} ne $!cache-file-name {
+        %!index{$!identifier64}                     = $!cache-file-name;
+        $!index-path.spurt(to-json(%!index))        or die;
+        $!index-path.chmod(0o600)                   or die;
+    }
+    my $cache-file                                  = open :w, $!cache-file-path;
+    while $fh.lines -> $record {
+        $cache-file.put($record);
+    }
+    $cache-file.close;
+    $fh.close;
+    $!cache-file-path.chmod(0o600)                  or die;
+    if $!cache-file-path.s > MAX-CACHE-DATA-FILE-SIZE {
+        compress("$!cache-file-path");
+        die unless "$!cache-file-path.bz2".IO.e;
+        "$!cache-file-path.bz2".IO.chmod(0o600)     or die;
+        unlink($!cache-file-path)                   or die;
+    }
+    else {
+        unlink("$!cache-file-path.bz2")             if "$!cache-file-path.bz2".IO.e;
+    }
+}
+
+multi method store (Str:D :$identifier!, Str:D :$data!) {
     self.identifier($identifier)                    with $identifier;
     if %!index{$!identifier64}:!exists || %!index{$!identifier64} ne $!cache-file-name {
         %!index{$!identifier64}                     = $!cache-file-name;
