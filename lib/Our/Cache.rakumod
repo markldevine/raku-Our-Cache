@@ -69,18 +69,22 @@ submethod TWEAK {
     chdir $cwd;
 }
 
-method identifier ($identifier?) {
+multi method identifier (@identifier) {
+    return self.idenitfier(@identifier.join);
+}
+
+multi method identifier ($identifier?) {
     with $identifier {
         my $id;
         if $identifier ~~ Positional {
-            $id                 = $identifier.list.join;
+            $id                         = $identifier.list.join;
         }
         else {
-            $id                 = $identifier;
+            $id                         = $identifier;
         }
         if !$!identifier64 || $id ne $!identifier {
-            $!identifier        = $id;
-            $!identifier64      = base64-encode($!identifier, :str);
+            $!identifier                = $id;
+            $!identifier64              = base64-encode($!identifier, :str);
             if %!index{$!identifier64}:exists {
                 $!cache-file-name       = %!index{$!identifier64};
             }
