@@ -102,10 +102,9 @@ method identifier ($identifier?) {
     return $!identifier;
 }
 
-method fetch-fh (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
-    return Nil                                      unless "$!index-path".IO.e;
+method cache-will-hit (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
+    return False                                     unless "$!index-path".IO.e;
     self.identifier($identifier)                    with $identifier;
-    return Nil                                      unless %!index{$!identifier64}:exists;
     if $purge-older-than {
         if "$!cache-file-path.bz2".IO.e {
             unlink "$!cache-file-path.bz2"          if "$!cache-file-path.bz2".IO.modified < $purge-older-than;
@@ -123,8 +122,13 @@ method fetch-fh (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-
         else {
             unlink $!index-path;
         }
-        return Nil;
     }
+    return False                                    unless %!index{$!identifier64}:exists;
+    return True;
+}
+
+method fetch-fh (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
+    return                                          unless self.cache-will-hit(:$identifier, :$purge-older-than);
     my IO::Handle $fh;
     if "$!cache-file-path.bz2".IO.e {
         my $proc                                    = run '/usr/bin/bunzip2', '-c', $!cache-file-path.Str ~ '.bz2', :out;
@@ -155,6 +159,9 @@ multi method store (Str:D :$identifier, Str:D :$data!) {
         die unless "$!cache-file-path.bz2".IO.e;
         "$!cache-file-path.bz2".IO.chmod(0o600)     or die;
         unlink($!cache-file-path)                   or die;
+    }
+    else {
+        unlink("$!cache-file-path.bz2")             if "$!cache-file-path.bz2".IO.e;
     }
 }
 
