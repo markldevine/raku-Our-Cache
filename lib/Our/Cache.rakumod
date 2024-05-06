@@ -152,7 +152,43 @@ method fetch (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-tha
     return slurp(self.fetch-fh(:$identifier, :$purge-older-than), :close);
 }
 
+method !store-precheck (Str:D :$identifier!) {
+    self.identifier($identifier)                    with $identifier;
+    my Bool $changed                                = False;
+    if %!index{$!identifier64}:!exists {
+        %!index{$!identifier64}                     = $!cache-file-name;
+        $changed                                    = True;
+    }
+    if %!index{$!identifier64} ne $!cache-file-name {
+        unlink("$!cache-dir/%!index{$!identifier64}") if "$!cache-dir/%!index{$!identifier64}".IO.e;
+        %!index{$!identifier64}                     = $!cache-file-name;
+        $changed                                    = True;
+    }
+    if $changed {
+        $!index-path.spurt(to-json(%!index))        or die;
+        $!index-path.chmod(0o600)                   or die;
+    }
+}
+
+#   Store from existing file (where .basename ~~ Cache-File-Name)
+#       - multi send in a path, which would need
+#           multi method store (Str:D :$identifier!, IO::Path:D :$path!) {
+#           - normalization if relative
+#           - checked for being under the $cache-dir...
+#       - multi send in a (.basename ~~ Cache-File-Name) and expect to be added to the $cache-dir...
+
+multi method store (Str:D :$identifier!, Str:D :$cache-file-name!) {
+    die 'Illegal file name for cache storage! <' ~ $cache-file-name ~ '>'   unless $cache-file-name ~~ Cache-File-Name;
+    die '<' ~ $cache-file-name ~ '> not found in cache-dir <' ~ $!cache-dir unless "$cache-dir/$cache-file-name".IO.e;
+    self!store-precheck($identifier);
+
+#   ...
+
+}
+
+#   Store from open FH
 multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
+#   self!store-precheck($identifier);
     self.identifier($identifier)                    with $identifier;
     if %!index{$!identifier64}:!exists || %!index{$!identifier64} ne $!cache-file-name {
         %!index{$!identifier64}                     = $!cache-file-name;
@@ -177,13 +213,9 @@ multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
     }
 }
 
+#   Store from memory
 multi method store (Str:D :$identifier!, Str:D :$data!) {
-    self.identifier($identifier)                    with $identifier;
-    if %!index{$!identifier64}:!exists || %!index{$!identifier64} ne $!cache-file-name {
-        %!index{$!identifier64}                     = $!cache-file-name;
-        $!index-path.spurt(to-json(%!index))        or die;
-        $!index-path.chmod(0o600)                   or die;
-    }
+    self!store-precheck($identifier);
     $!cache-file-path.spurt($data)                  or die;
     $!cache-file-path.chmod(0o600)                  or die;
     if $!cache-file-path.s > MAX-CACHE-DATA-FILE-SIZE {
