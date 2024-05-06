@@ -106,6 +106,10 @@ multi method identifier ($identifier?) {
     return $!identifier;
 }
 
+method expire-now (Str:D :$identifier!, Instant :$purge-older-than = $!purge-older-than) {
+    self.cache-will-hit(:$identifier, $purge-older-than(now + 10));
+}
+
 method cache-will-hit (Str:D :$identifier!, Instant :$purge-older-than = $!purge-older-than) {
     return False                                     unless "$!index-path".IO.e;
     self.identifier($identifier)                    with $identifier;
