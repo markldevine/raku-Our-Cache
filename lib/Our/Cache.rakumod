@@ -70,7 +70,7 @@ submethod TWEAK {
 }
 
 multi method identifier (@identifier) {
-    return self.idenitfier(@identifier.join);
+    return self.identifier(@identifier.join);
 }
 
 multi method identifier ($identifier?) {
