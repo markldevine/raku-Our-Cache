@@ -57,7 +57,7 @@ Cases
             $!cache-file-name = generated $!cache-file-name
         $!cache-file-path = $!cache-dir.add: $!cache-file-name;
         $!cache-hit = False
-        if %!index{$identifier64}:exists & $!cache-file-path.e
+        if %!index{$identifier64}:exists & self!cache-file-exists(:cache-file($!cache-file-path))
             if $purge-older-than
                 unlink($!cache-file-path) or die
                 %!index{$identifier64}:delete
@@ -70,34 +70,40 @@ Cases
         return slurp(self.fetch-fh(:$identifier, :$purge-older-than), :close);
     multi method fetch-fh (:identifier, :$purge-older-than)
         return Nil unless self.set-identifier(:$identifier, :$purge-older-than)
+        my $existing-path = self!cache-file-exists(:cache-file("$cache-dir/%!index{$identifier64}"));
+        ... open
         return $fh
 
     multi method store (:identifier, Positional:D :data)
     multi method store (:identifier, Str:D :data)
         self.set-identifier(:$identifier)
         %!index{$identifier64} ne $!cache-file-name
-            unlink "$cache-dir/%!index{$identifier64}" if "$cache-dir/%!index{$identifier64}".IO.e
+            my $existing-path = self!cache-file-exists(:cache-file("$cache-dir/%!index{$identifier64}"));
+            unlink("existing-path") if $existing-path;
         %!index{$identifier64} = $!cache-file-name;
         $!cache-file-path.spurt($data) or die;
         $!cache-file-path.chmod(0o600) or die;
+        compress if necessary
         self!write-index
 
     multi method store (:identifier, Str:D :path)
         self.store(:identifier, :path(IO::Path.new(:$path)));
     multi method store (:identifier, IO::Path:D :path)
         die unless path.e
-        my $fh = open :r, $path
-        die unless $fh;
+        my $fh = open :r, $path or die
         self.store(:identifier, :$fh)
 
     multi method store (:identifier, IO::Handle:D :$fh)
         self.set-identifier(:$identifier)
         %!index{$identifier64} ne $!cache-file-name
-            unlink "$cache-dir/%!index{$identifier64}" if "$cache-dir/%!index{$identifier64}".IO.e
+            my $existing-path = self!cache-file-exists(:cache-file("$cache-dir/%!index{$identifier64}"));
+            unlink("existing-path") if $existing-path;
         %!index{$identifier64} = $!cache-file-name;
         if $fh.path.Str ne $cache-file-path.Str
             while $fh.get -> $record
                 $cache-file-path.put: $record;
+            close
+            close
         self!write-index
 
 AUTHOR
