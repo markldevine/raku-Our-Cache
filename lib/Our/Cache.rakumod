@@ -158,6 +158,10 @@ multi method set-identifier (Str:D :$identifier, Instant :$purge-older-than = $!
     return $!cache-hit;
 }
 
+method expire-now (Str:D :$identifier!) {
+    self.set-identifier(:$identifier, :purge-older-than(now));
+}
+
 multi method fetch (:@identifier!, Instant :$purge-older-than = $!purge-older-than) {
     return self.fetch(:identifier(@identifier.flat.join), :$purge-older-than);
 }
