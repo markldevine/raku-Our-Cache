@@ -25,6 +25,7 @@ has IO::Path        $!index-path;
 has Instant         $!index-modtime;
 has                 %!index                 = ();
 has Str             $!subdir                = $*PROGRAM.IO.basename;
+has Bool            $.cache-hit             = False;
 
 submethod TWEAK {
 
@@ -53,13 +54,13 @@ submethod TWEAK {
 #   validate that all index entries have valid format & point to valid cache data files
     my Bool $index-changed                  = False;
     my %idx                                 = %!index;
-    for %!idx.keys -> $id64 {
-        if %!idx{$id64} !~~ Cache-File-Name {
+    for %idx.keys -> $id64 {
+        if %idx{$id64} !~~ Cache-File-Name {
             %!index{$id64}:delete;
             $index-changed                  = True;
             next;
         }
-        my IO::Path $cache-path = $!cache-dir.add: %!idx{$id64};
+        my IO::Path $cache-path = $!cache-dir.add: %idx{$id64};
         unless self!cache-file-exists(:cache-file($cache-path.Str)) {
             %!index{$id64}:delete;
             $index-changed                  = True;
@@ -93,11 +94,11 @@ method !write-index () {
 }
 
 method !cache-file-exists (Str:D :$cache-file) {
-    my IO::Path $path                       = $!cache-dir
+    my IO::Path $path                       = $!cache-dir;
     $path                                   = IO::Path.new($cache-file) if $cache-file.starts-with('/');
     return False                            unless $path.Str.starts-with($!cache-dir.Str);
     return $path                            if $path.e;
-    return $path ~ '.bz2'                   if "$path.bz2".e;
+    return $path ~ '.bz2'                   if "$path.bz2".IO.e;
     return False;
 }
 
@@ -115,37 +116,39 @@ multi method set-identifier (:@identifier, Instant :$purge-older-than = $!purge-
     return self.set-identifier(:identifier(@identifier.join), :$purge-older-than);
 }
 
-multi method set-identifier (:$identifier, Instant :$purge-older-than = $!purge-older-than) {
+multi method set-identifier (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
+
+    $!identifier                            = $identifier;
 
 #   establish the new identifier key
-    $!identifier64                          = base64-encode($!identifier, :str);
+    $!identifier64                          = base64-encode($identifier, :str);
 
 #   refresh the $!index, if necessary
     self!read-index;
 
 #   attempt to recycle any existing index entry for identifier; clean up any nonsense
-    if %!index{$identifier64}:exists {
-        if self!cache-file-exists(:cache-file(%!index{$identifier64}) {
-            $!cache-file-name               = %!index{$identifier64};
+    if %!index{$!identifier64}:exists {
+        if self!cache-file-exists(:cache-file(%!index{$!identifier64})) {
+            $!cache-file-name               = %!index{$!identifier64};
         }
         else {
-            %!index{$identifier64}:delete;
+            %!index{$!identifier64}:delete;
             self!write-index;
         }
     }
 #   if no index entry exists for identifier at this point, generate a new cache data file name to propose for future use
-    self!generate-cache-file-data-name      unless %!index{$identifier64}:exists;
+    self!generate-cache-file-data-name      unless %!index{$!identifier64}:exists;
 
 #   finalize the $!cache-file-path
     $!cache-file-path                       = $!cache-dir.add: $!cache-file-name;
 
 #   attempt to hit the cache for this identifier, after purging expired entries
     $!cache-hit                             = False;
-    my $path                                = self!cache-file-exists(:cache-file($!cache-file-path));
-    if %!index{$identifier64}:exists & $path {
+    my $path                                = self!cache-file-exists(:cache-file($!cache-file-path.Str));
+    if %!index{$!identifier64}:exists & $path {
         if $purge-older-than && "$path".IO.modified < $purge-older-than {
             unlink($!cache-file-path)       or die;
-            %!index{$identifier64}:delete;
+            %!index{$!identifier64}:delete;
             self!write-index;
         }
         else {
@@ -169,7 +172,7 @@ multi method fetch-fh (:@identifier!, Instant :$purge-older-than = $!purge-older
 
 multi method fetch-fh (Str:D :$identifier!, Instant :$purge-older-than = $!purge-older-than) {
     return Nil                                      unless self.set-identifier(:$identifier, :$purge-older-than);
-    my $path                                        = self!cache-file-exists(:cache-file($!cache-file-path));
+    my $path                                        = self!cache-file-exists(:cache-file($!cache-file-path.Str));
     my IO::Handle $fh;
     if $path.ends-with('.bz2') {
         my $proc                                    = run '/usr/bin/bunzip2', '-c', $path, :out;
@@ -195,7 +198,7 @@ multi method store (:@identifier!, IO::Path:D :$path!) {
     return self.store(:identifier(@identifier.flat.join), :$path);
 }
 
-multi method store (Str:D :$identifier!, IO::Path:D :$path!)
+multi method store (Str:D :$identifier!, IO::Path:D :$path!) {
     die                                             unless $path.e;
     my $fh                                          = open :r, $path or die;
     return self.store(:$identifier, :$fh)
@@ -210,17 +213,17 @@ multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
     self.identifier($identifier)                    with $identifier;
 
 #   if replacing an existing entry
-    if %!index{$identifier64} ne $!cache-file-name {
-        my $existing-path                           = self!cache-file-exists(:cache-file("$cache-dir/%!index{$identifier64}"));
+    if %!index{$!identifier64} ne $!cache-file-name {
+        my $existing-path                           = self!cache-file-exists(:cache-file("$!cache-dir/%!index{$!identifier64}"));
         unlink("existing-path")                     if $existing-path;
     }
 
 #   assign the identifier to a cache data file name
-    %!index{$identifier64} = $!cache-file-name;
+    %!index{$!identifier64} = $!cache-file-name;
 
 #   if the filehandle is not our anticipated $!cache-file-path, it must be a foreign source;
 #   read from the consumer's filehandle and put that data into our $!cache-file-path
-    if $fh.path.Str ne $cache-file-path.Str {
+    if $fh.path.Str ne $!cache-file-path.Str {
         my $cache-fh                                = open :w, $!cache-file-path;
         while $fh.get -> $record {
             $cache-fh.put($record);
@@ -254,7 +257,7 @@ multi method store (Str:D :$identifier!, Str:D :$data!) {
     self.set-identifier(:$identifier);
 
 #   assign the identifier to a cache data file name
-    %!index{$identifier64}                          = $!cache-file-name;
+    %!index{$!identifier64}                          = $!cache-file-name;
     self!write-index;
 
 #   write the data to cache
