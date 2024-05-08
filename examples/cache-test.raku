@@ -8,6 +8,7 @@ run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.raku
 my $cache   = Our::Cache.new;
 
 $cache.store(:identifier<A>, :data<AAAAAAAAAAAAA>); run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>; put '-' x 80;
+put $cache.fetch(:identifier<A>);
 
 
 =finish
