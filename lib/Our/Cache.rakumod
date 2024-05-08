@@ -136,10 +136,11 @@ multi method set-identifier (Str:D :$identifier, Instant :$purge-older-than = $!
             self!write-index;
         }
     }
-#   if no index entry exists for identifier at this point, generate a new cache data file name to propose for future use
-    self!generate-cache-file-data-name      unless %!index{$!identifier64}:exists;
 
-#   finalize the $!cache-file-path
+#   if no $!cache-file-name exists for the instance at this point, generate a new one for potential future use
+    self!generate-cache-file-data-name      unless $!cache-file-name;
+
+#   canonicalize the $!cache-file-path
     $!cache-file-path                       = $!cache-dir.add: $!cache-file-name;
 
 #   attempt to hit the cache for this identifier, after purging expired entries
@@ -147,6 +148,7 @@ multi method set-identifier (Str:D :$identifier, Instant :$purge-older-than = $!
     my $path                                = self!cache-file-exists(:cache-file($!cache-file-path.Str));
     if %!index{$!identifier64}:exists & $path {
         if $purge-older-than && "$path".IO.modified < $purge-older-than {
+put 'purging ' ~ $path ~ ' due to ' ~ $purge-older-than;
             unlink($!cache-file-path)       or die;
             %!index{$!identifier64}:delete;
             self!write-index;
@@ -216,7 +218,7 @@ multi method store (:@identifier!, IO::Handle:D :$path!) {
 }
 
 multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
-    self.set-identifier(:$identifier)               with $identifier;
+    self.set-identifier(:$identifier);
 
 #   if replacing an existing entry
     if %!index{$!identifier64} && %!index{$!identifier64} ne $!cache-file-name {
