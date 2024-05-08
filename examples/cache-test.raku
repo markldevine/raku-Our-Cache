@@ -8,11 +8,14 @@ run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.raku
 
 my $cache   = Our::Cache.new;
 
-my $identifier = 'A' x 32768;
+my $identifier = 'A' x 1;
 #$cache.store(:$identifier, :data<AAAAAAAAAAAAA>); run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>; put '-' x 80;
-put $cache.fetch(:$identifier);
+my $data = $cache.fetch(:$identifier) or note;
+put $data if $data;
 
-#$cache.store(:data<BBBBBBBBBBBBB>, :identifier(<B>)); run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>; put '-' x 80;
+$cache.store(:data<BBBBBBBBBBBBB>, :identifier(<B>)); run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>; put '-' x 80;
+put $cache.fetch(:identifier(<B>));
+
 #$cache.store(:data('b' x 10240), :identifier(<B>)); run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>; put '-' x 80;
 
 =finish

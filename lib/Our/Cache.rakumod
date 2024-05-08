@@ -163,7 +163,9 @@ multi method fetch (:@identifier!, Instant :$purge-older-than = $!purge-older-th
 }
 
 multi method fetch (Str:D :$identifier!, Instant :$purge-older-than = $!purge-older-than) {
-    return slurp(self.fetch-fh(:$identifier, :$purge-older-than), :close);
+    my $fh                                  = self.fetch-fh(:$identifier, :$purge-older-than);
+    return $fh                              unless $fh ~~ IO::Handle:D;
+    return $fh.slurp(:close);
 }
 
 multi method fetch-fh (:@identifier!, Instant :$purge-older-than = $!purge-older-than) {
