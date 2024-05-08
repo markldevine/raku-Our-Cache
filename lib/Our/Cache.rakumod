@@ -213,7 +213,7 @@ multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
     self.set-identifier(:$identifier)               with $identifier;
 
 #   if replacing an existing entry
-    if %!index{$!identifier64} ne $!cache-file-name {
+    if %!index{$!identifier64} && %!index{$!identifier64} ne $!cache-file-name {
         my $existing-path                           = self!cache-file-exists(:cache-file("$!cache-dir/%!index{$!identifier64}"));
         unlink("existing-path")                     if $existing-path;
     }
