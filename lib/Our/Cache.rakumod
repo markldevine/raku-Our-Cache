@@ -190,7 +190,7 @@ multi method store (:@identifier!, Str:D :$path!) {
 }
 
 multi method store (Str:D :$identifier!, Str:D :$path!) {
-    return self.store(:$identifier, :path(IO::Path.new(:$path)));
+    return self.store(:$identifier, :path(IO::Path.new($path)));
 }
 
 #   store from IO::Path
@@ -210,7 +210,7 @@ multi method store (:@identifier!, IO::Handle:D :$path!) {
 }
 
 multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
-    self.identifier($identifier)                    with $identifier;
+    self.set-identifier(:$identifier)               with $identifier;
 
 #   if replacing an existing entry
     if %!index{$!identifier64} ne $!cache-file-name {
@@ -225,8 +225,8 @@ multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
 #   read from the consumer's filehandle and put that data into our $!cache-file-path
     if $fh.path.Str ne $!cache-file-path.Str {
         my $cache-fh                                = open :w, $!cache-file-path;
-        while $fh.get -> $record {
-            $cache-fh.put($record);
+        while !$fh.eof {
+            $cache-fh.put($fh.get);
         }
         $cache-fh.close;
         $fh.close;
