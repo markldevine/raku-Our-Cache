@@ -24,7 +24,7 @@ has Str             $!identifier64;
 has IO::Path        $!index-path;
 has Instant         $!index-modtime;
 has                 %!index                 = ();
-has Str             $!subdir                = $*PROGRAM.IO.basename;
+has Str:D           $.subdir                = $*PROGRAM.IO.basename;
 has Bool            $.cache-hit             = False;
 
 submethod TWEAK {
@@ -148,7 +148,6 @@ multi method set-identifier (Str:D :$identifier, Instant :$purge-older-than = $!
     my $path                                = self!cache-file-exists(:cache-file($!cache-file-path.Str));
     if %!index{$!identifier64}:exists & $path {
         if $purge-older-than && "$path".IO.modified < $purge-older-than {
-put 'purging ' ~ $path ~ ' due to ' ~ $purge-older-than;
             unlink($!cache-file-path)       or die;
             %!index{$!identifier64}:delete;
             self!write-index;
