@@ -2,7 +2,7 @@
 
 use lib '/home/mdevine/github.com/raku-Our-Cache/lib';
 use Our::Cache;
-use Compress::Bzip2;
+#use Compress::Bzip2;
 
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
 

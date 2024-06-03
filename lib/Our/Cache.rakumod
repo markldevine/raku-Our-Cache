@@ -18,7 +18,8 @@ subset Cache-File-Name of Str where $_ ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAM
 has IO::Path        $.cache-dir             = $*HOME;
 has Cache-File-Name $.cache-file-name;
 has IO::Path        $.cache-file-path       is built;
-has Instant         $.purge-older-than;
+#has Instant         $.expire-at;
+#has Instant         $.collected-at;
 has Str             $.identifier            is built;
 has Str             $!identifier64;
 has IO::Path        $!index-path;
@@ -192,31 +193,31 @@ multi method fetch-fh (Str:D :$identifier!, Instant :$purge-older-than = $!purge
 }
 
 #   store from STR
-multi method store (:@identifier!, Str:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$path);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$path!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$path);
 }
 
-multi method store (Str:D :$identifier!, Str:D :$path!) {
-    return self.store(:$identifier, :path(IO::Path.new($path)));
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$path!) {
+    return self.store(:$identifier, :$collected-at, :$expire-at, :path(IO::Path.new($path)));
 }
 
 #   store from IO::Path
-multi method store (:@identifier!, IO::Path:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$path);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Path:D :$path!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$path);
 }
 
-multi method store (Str:D :$identifier!, IO::Path:D :$path!) {
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Path:D :$path!) {
     die                                             unless $path.e;
     my $fh                                          = open :r, $path or die;
-    return self.store(:$identifier, :$fh)
+    return self.store(:$identifier, :$collected-at, :$expire-at, :$fh)
 }
 
 #   store from open FH
-multi method store (:@identifier!, IO::Handle:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$path);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Handle:D :$path!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$path);
 }
 
-multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Handle:D :$fh!) {
     self.set-identifier(:$identifier);
 
 #   if replacing an existing entry
@@ -256,11 +257,11 @@ multi method store (Str:D :$identifier!, IO::Handle:D :$fh!) {
 }
 
 #   Store from memory
-multi method store (:@identifier!, Str:D :$data!) {
-    return self.store(:identifier(@identifier.flat.join), :$data);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$data!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$data);
 }
 
-multi method store (Str:D :$identifier!, Str:D :$data!) {
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$data!) {
     self.set-identifier(:$identifier);
 
 #   assign the identifier to a cache data file name
