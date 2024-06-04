@@ -18,8 +18,6 @@ subset Cache-File-Name of Str where $_ ~~ / ^ <[a..zA..Z0..9]> ** {DATA-FILE-NAM
 has IO::Path        $.cache-dir             = $*HOME;
 has Cache-File-Name $.cache-file-name;
 has IO::Path        $.cache-file-path       is built;
-#has Instant         $.expire-at;
-#has Instant         $.collected-at;
 has Str             $.identifier            is built;
 has Str             $!identifier64;
 has IO::Path        $!index-path;
@@ -29,7 +27,6 @@ has Str:D           $.subdir                = $*PROGRAM.IO.basename;
 has Bool            $.cache-hit             = False;
 
 submethod TWEAK {
-
 #   establish the root directory for this cache
     if $!subdir.starts-with('/') {
         $!cache-dir = $!cache-dir.add: $!subdir;
@@ -52,16 +49,18 @@ submethod TWEAK {
         self!write-index;
     }
 
-#   validate that all index entries have valid format & point to valid cache data files
+#   validate that all index entries are current & point to valid cache data files
     my Bool $index-changed                  = False;
     my %idx                                 = %!index;
     for %idx.keys -> $id64 {
-        if %idx{$id64} !~~ Cache-File-Name {
+        if %idx{$id64}<Expire-After>:exists && %idx{$id64}<Expire-After> < now {
+            unlink %idx{$id64}<Cache-File-Name>         if "%idx{$id64}<Cache-File-Name>".IO.e;
+            unlink "%idx{$id64}<Cache-File-Name>.bz2"   if "%idx{$id64}<Cache-File-Name>.bz2".IO.e;
             %!index{$id64}:delete;
             $index-changed                  = True;
             next;
         }
-        my IO::Path $cache-path = $!cache-dir.add: %idx{$id64};
+        my IO::Path $cache-path = $!cache-dir.add: %idx{$id64}<Cache-File-Name>;
         unless self!cache-file-exists(:cache-file($cache-path.Str)) {
             %!index{$id64}:delete;
             $index-changed                  = True;
@@ -70,16 +69,16 @@ submethod TWEAK {
     self!write-index                        if $index-changed;
 
 #   remove any orphaned Cache-File-Name files in $!cache-dir not in the index
-    my %v;
-    for %!index.values -> $v {
-        %v{$v} = 0;
-    }
-    my $cwd                                 = $*CWD;
-    chdir $!cache-dir;
-    for dir(test => { $_ ~~ Cache-File-Name }) -> $cache-file {
-        unlink $cache-file                  unless %v{$cache-file}:exists;
-    }
-    chdir $cwd;
+#   my %v;
+#   for %!index.values -> $id64 {
+#       %v{$!index<$id64}{Cache-File-Name}} = 0;
+#   }
+#   my $cwd                                 = $*CWD;
+#   chdir $!cache-dir;
+#   for dir(test => { $_ ~~ Cache-File-Name }) -> $cache-file {
+#       unlink $cache-file                  unless %v{$cache-file}:exists;
+#   }
+#   chdir $cwd;
 }
 
 method !read-index () {
@@ -110,15 +109,14 @@ method !generate-cache-file-data-name {
         $!cache-file-name                   = '';
     }
     die                                     unless $!cache-file-name;
-    $!cache-file-path                       = $!cache-dir.add: $!cache-file-name;
 }
 
-multi method set-identifier (:@identifier, Instant :$purge-older-than = $!purge-older-than) {
-    return self.set-identifier(:identifier(@identifier.join), :$purge-older-than);
+multi method set-identifier (:@identifier) {
+    return self.set-identifier(:identifier(@identifier.join), :$collected-at, :$expire-after);
 }
 
-multi method set-identifier (Str:D :$identifier, Instant :$purge-older-than = $!purge-older-than) {
-
+multi method set-identifier (Str:D :$identifier) {
+    my Bool $write-index                    = False;
     $!identifier                            = $identifier;
 
 #   establish the new identifier key
@@ -129,34 +127,37 @@ multi method set-identifier (Str:D :$identifier, Instant :$purge-older-than = $!
 
 #   attempt to recycle any existing index entry for identifier; clean up any nonsense
     if %!index{$!identifier64}:exists {
-        if self!cache-file-exists(:cache-file(%!index{$!identifier64})) {
-            $!cache-file-name               = %!index{$!identifier64};
+        if self!cache-file-exists(:cache-file(%!index{$!identifier64}<Cache-File-Name>)) {
+            $!cache-file-name               = %!index{$!identifier64}<Cache-File-Name>;
         }
         else {
             %!index{$!identifier64}:delete;
-            self!write-index;
+            $write-index                    = True;
         }
     }
 
 #   if no $!cache-file-name exists for the instance at this point, generate a new one for potential future use
     self!generate-cache-file-data-name      unless $!cache-file-name;
 
-#   canonicalize the $!cache-file-path
+#   absolute the $!cache-file-path
     $!cache-file-path                       = $!cache-dir.add: $!cache-file-name;
 
 #   attempt to hit the cache for this identifier, after purging expired entries
     $!cache-hit                             = False;
     my $path                                = self!cache-file-exists(:cache-file($!cache-file-path.Str));
-    if %!index{$!identifier64}:exists & $path {
-        if $purge-older-than && "$path".IO.modified < $purge-older-than {
+    if $path && %!index{$!identifier64}:exists {
+
+#       if $expire-after && "$path".IO.modified < $purge-older-than {
+        if ($expire-after && %!index{$!identifier64}<COLLECTED-AT> < $expire-after) {
             unlink($!cache-file-path)       or die;
             %!index{$!identifier64}:delete;
-            self!write-index;
+            $write-index                    = True;
         }
         else {
             $!cache-hit                     = True;
         }
     }
+    self!write-index                        if $!write-index;
     return $!cache-hit;
 }
 
@@ -193,41 +194,47 @@ multi method fetch-fh (Str:D :$identifier!, Instant :$purge-older-than = $!purge
 }
 
 #   store from STR
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$path);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, Str:D :$path!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$path);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$path!) {
-    return self.store(:$identifier, :$collected-at, :$expire-at, :path(IO::Path.new($path)));
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Str:D :$path!) {
+    return self.store(:$identifier, :$collected-at, :$expire-after, :path(IO::Path.new($path)));
 }
 
 #   store from IO::Path
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Path:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$path);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, IO::Path:D :$path!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$path);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Path:D :$path!) {
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, IO::Path:D :$path!) {
     die                                             unless $path.e;
     my $fh                                          = open :r, $path or die;
-    return self.store(:$identifier, :$collected-at, :$expire-at, :$fh)
+    return self.store(:$identifier, :$collected-at, :$expire-after, :$fh)
 }
 
 #   store from open FH
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Handle:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$path);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, IO::Handle:D :$path!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$path);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, IO::Handle:D :$fh!) {
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, IO::Handle:D :$fh!) {
     self.set-identifier(:$identifier);
 
 #   if replacing an existing entry
-    if %!index{$!identifier64} && %!index{$!identifier64} ne $!cache-file-name {
-        my $existing-path                           = self!cache-file-exists(:cache-file("$!cache-dir/%!index{$!identifier64}"));
-        unlink("existing-path")                     if $existing-path;
+    if %!index{$!identifier64} && %!index{$!identifier64}<Cache-File-Name> ne $!cache-file-name {
+        my $existing-path                           = self!cache-file-exists(:cache-file("$!cache-dir/%!index{$!identifier64}<Cache-File-Name>"));
+        unlink($existing-path)                      if $existing-path;
     }
 
-#   assign the identifier to a cache data file name
-    %!index{$!identifier64} = $!cache-file-name;
+#   assign a cache data file name to the identifier
+    %!index{$!identifier64}<Cache-File-Name>        = $!cache-file-name;
+
+#   assign an Instant when collected to the identifier
+    %!index{$!identifier64}<Collected-At>           = $colleted-at;
+
+#   assign an Instant when to expire to the identifier, as required
+    %!index{$!identifier64}<Expire-After>           = $expire-after if $expire-after;
 
 #   if the filehandle is not our anticipated $!cache-file-path, it must be a foreign source;
 #   read from the consumer's filehandle and put that data into our $!cache-file-path
@@ -257,16 +264,21 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
 }
 
 #   Store from memory
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$data!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-at, :$data);
+multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, Str:D :$data!) {
+    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$data);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-at, Str:D :$data!) {
+multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Str:D :$data!) {
     self.set-identifier(:$identifier);
 
 #   assign the identifier to a cache data file name
-    %!index{$!identifier64}                          = $!cache-file-name;
-    self!write-index;
+    %!index{$!identifier64}<Cache-File-Name>        = $!cache-file-name;
+
+#   assign an Instant when collected to the identifier
+    %!index{$!identifier64}<Collected-At>           = $colleted-at;
+
+#   assign an Instant when to expire to the identifier, as required
+    %!index{$!identifier64}<Expire-After>           = $expire-after if $expire-after;
 
 #   write the data to cache
     $!cache-file-path.spurt($data)                  or die;
@@ -282,6 +294,8 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
     else {
         unlink("$!cache-file-path.bz2")             if "$!cache-file-path.bz2".IO.e;
     }
+
+    self!write-index;
 }
 
 =finish
