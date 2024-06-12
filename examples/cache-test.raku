@@ -5,50 +5,58 @@ use Our::Cache;
 #use Compress::Bzip2;
 use Data::Dump::Tree;
 
+my $cache;
+my $data;
+my $identifier;
+
 run <rm -rf /home/mdevine/.rakucache/cache-test.raku/> if "/home/mdevine/.rakucache/cache-test.raku".IO.d;
 
-#   Case: simple store(), simple fetch()
-put '=' x 80;
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-my $identifier  = 'A' x 18;
-my $cache       = Our::Cache.new(:$identifier);
-$cache.store(:$identifier, :data<AAAAAAAAAAAA>);
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-my $data = $cache.fetch(:$identifier) or note;
-put $data if $data;
-put '=' x 80; put "\n";
+sub Case1 {
+#   simple store(), simple fetch()
+    put '=' x 80;
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $identifier     = 'A' x 18;
+    $cache          = Our::Cache.new(:$identifier);
+    $cache.store(:$identifier, :data<AAAAAAAAAAAA>);
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $data           = $cache.fetch(:$identifier) or note;
+    put $data       if $data;
 
-#   Case: simple fetch()
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-$data = $cache.fetch(:$identifier) or note;
-put $data if $data;
-put '=' x 80; put "\n";
+#   simple fetch()
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $data           = $cache.fetch(:$identifier) or note;
+    put $data       if $data;
 
-#   Case: fetch() with an $expire-after of now()
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-$data = $cache.fetch(:$identifier, :expire-after(now)) or note;
-put $data if $data;
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-put '=' x 80; put "\n";
+#   fetch() with an $expire-after of now()
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $data           = $cache.fetch(:$identifier, :expire-after(now)) or note;
+    put $data       if $data;
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    put '=' x 80; put "\n";
+}
 
-#   Case: store() with now() expiration, attempt fetch()
-put '=' x 80;
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-$identifier     = 'B' x 24;
-$cache          = Our::Cache.new(:$identifier);
-$cache.store(:$identifier, :data<BBBBBBBBBBBB>, :expire-after(now - 1));
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-$data           = $cache.fetch(:$identifier) or note;
-put $data if $data;
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-put '=' x 80; put "\n";
+sub Case2 {
+#   store() with now() expiration, attempt fetch()
+    put '=' x 80;
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $identifier     = 'B' x 24;
+    $cache          = Our::Cache.new(:$identifier);
+    $cache.store(:$identifier, :data<BBBBBBBBBBBB>, :expire-after(now - 1));
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $data           = $cache.fetch(:$identifier) or note;
+    put $data       if $data;
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    put '=' x 80; put "\n";
 
-#   Case: fetch(), expecting immediate expiration
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-$data = $cache.fetch(:$identifier) or note;
-put $data if $data;
-run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-put '=' x 80; put "\n";
+#   fetch(), expecting immediate expiration
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $data = $cache.fetch(:$identifier) or note;
+    put $data       if $data;
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    put '=' x 80; put "\n";
+}
+
+Case2;
 
 =finish
 
