@@ -35,6 +35,7 @@ has Instant     $!collection-instant                    is built = now;
 has Instant     $!expire-instant                        is built;
 has Str:D       $.subdir                                = $*PROGRAM.IO.basename;
 has IO::Path    $.temp-write-path                       is built(False);
+has Str         @!id-segments;
 
 submethod TWEAK {
 #   establish the root directory for this cache
@@ -50,19 +51,17 @@ submethod TWEAK {
     }
     $!identifier64                                      = base64-encode($!identifier, :str);
     $!cache-entry-full-dir                              = $!cache-dir;
-    for $!identifier64.comb(ID-SEGMENT-SIZE) -> $segment {
+
+    @!id-segments                                       = $!identifier64.comb(ID-SEGMENT-SIZE);
+    for @!id-segments -> $segment {
         $!cache-entry-full-dir                          = $!cache-entry-full-dir.add: $segment;
-        unless $!cache-entry-full-dir.e {
-            $!cache-entry-full-dir.mkdir(:mode(CACHE-DIR-PERMISSIONS))  or die;
-            $!cache-entry-full-dir.chmod(CACHE-DIR-PERMISSIONS)         or die;
-        }
     }
     $!cache-data-path                                   = $!cache-entry-full-dir.add: DATA-FILE-NAME;
     $!cache-expire-instant-path                         = $!cache-entry-full-dir.add: EXPIRE-INSTANT-FILE-NAME;
     $!cache-collection-instant-path                     = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
     if self!cache-path-exists($!cache-data-path) {
         if $!cache-expire-instant-path.e {
-            $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path, :close).subst(/^Instant:/));
+            $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
             if $!expire-instant < now {
                 self!expire;
                 $!cache-hit                             = False;
@@ -75,16 +74,29 @@ submethod TWEAK {
     unless $!active-data-path {
         $!temp-write-path                               = $!cache-dir.add: self!generate-temp-file-name;
     }
+put '$!cache-hit = <' ~ $!cache-hit ~ '>';
 }
 
-method !expire {
-    unlink $!active-data-path;
-    unlink $!cache-expire-instant-path;
-    unlink $!cache-collection-instant-path;
+method !create-cache-directory-segments () {
+    my IO::Path $dir                                    = $!cache-dir;
+    for @!id-segments -> $segment {
+        $dir                                            = $dir.add: $segment;
+        unless $dir.e {
+            $dir.mkdir(:mode(CACHE-DIR-PERMISSIONS))    or die;
+            $dir.chmod(CACHE-DIR-PERMISSIONS)           or die;
+        }
+    }
+}
+
+method !expire () {
+    unlink $!active-data-path                           if $!active-data-path && $!active-data-path.e;
+    unlink $!cache-expire-instant-path                  if $!cache-expire-instant-path && $!cache-expire-instant-path.e;
+    unlink $!cache-collection-instant-path              if $!cache-collection-instant-path && $!cache-collection-instant-path.e;
     my $dir                                             = $!cache-entry-full-dir;
     while $dir ne $!cache-dir {
-        put "unlink $dir";
-        $dir                                            = $dir.subst(/\/.+?$/);
+        last                                            unless $dir.IO.e;
+        $dir.rmdir;
+        $dir                                            = $dir.subst(/ '/' <-[/]>+ $ /);
     }
 }
 
@@ -117,7 +129,7 @@ multi method fetch (:@identifier!, Instant :$expire-after) {
 
 multi method fetch (Str:D :$identifier!, Instant :$expire-after) {
     my $fh                                              = self.fetch-fh(:$identifier, :$expire-after);
-    return $fh                                          unless $fh ~~ IO::Handle:D;
+    return Nil                                          unless $fh ~~ IO::Handle:D;
     return $fh.slurp(:close);
 }
 
@@ -126,15 +138,25 @@ multi method fetch-fh (:@identifier!, Instant :$expire-after) {
 }
 
 multi method fetch-fh (Str:D :$identifier!, Instant :$expire-after) {
-    return Nil                                          unless self.set-identifier(:$identifier, :$expire-after);
-    my $path                                            = self!cache-path-exists($!cache-data-path.Str);
+
+    if $!expire-instant && $!expire-instant < now {
+        self!expire;
+        return Nil;
+    }
+
+    if $expire-after && $!collection-instant < $expire-after {
+        self!expire;
+        return Nil;
+    }
+
+    return Nil                                          unless self!cache-path-exists($!cache-data-path);
     my IO::Handle $fh;
-    if $path.ends-with('.bz2') {
-        my $proc                                        = run '/usr/bin/bunzip2', '-c', $path, :out;
+    if $!active-data-path.Str.ends-with('.bz2') {
+        my $proc                                        = run '/usr/bin/bunzip2', '-c', $!active-data-path, :out;
         $fh                                             = $proc.out;
     }
     else {
-        $fh                                             = open :r, $path;
+        $fh                                             = open :r, $!active-data-path;
     }
     return $fh;
 }
@@ -171,6 +193,7 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
     $keep                                                   = '--keep ' unless $purge-source;
 
     $!active-data-path                                      = $!cache-data-path;
+    self!create-cache-directory-segments;
 
     if $fh.path.Str ne $!cache-data-path.Str {
 
@@ -209,6 +232,7 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
     }
     $!active-data-path.chmod(DATA-FILE-PERMISSIONS)         or die;
     $!cache-collection-instant-path.spurt($collected-at)    or die;
+    $!collection-instant                                    = $collected-at;
     if $expire-after {
         $!cache-expire-instant-path.spurt($expire-after)    or die;
     }
@@ -225,6 +249,7 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
     $keep                                                   = '--keep ' unless $purge-source;
 
     $!active-data-path                                      = $!cache-data-path;
+    self!create-cache-directory-segments;
 
 #   write the data to cache
     $!cache-data-path.spurt($data)                          or die;
