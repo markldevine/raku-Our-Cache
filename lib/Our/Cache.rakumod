@@ -65,7 +65,7 @@ submethod TWEAK {
     }
 }
 
-method !cache-will-hit (Instant :$dynamic-expiration) {
+method !cache-will-hit (Instant :$expire-after) {
 
     $!cache-hit                                         = False;
 
@@ -81,10 +81,10 @@ method !cache-will-hit (Instant :$dynamic-expiration) {
     }
     return False                                        unless $!cache-hit;
 
-    if $dynamic-expiration {
+    if $expire-after {
         if $!cache-collection-instant-path.e {
-            $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
-            self!expire                                 if $!expire-instant < now;
+            $!collection-instant                        = Instant.from-posix(slurp($!cache-collection-instant-path).subst(/^Instant\:/).Real);
+            self!expire                                 if $!collection-instant < now;
         }
         else {
             $!cache-hit                                 = True;
@@ -159,7 +159,7 @@ multi method fetch-fh (:@identifier!, Instant :$expire-after) {
 
 multi method fetch-fh (Str:D :$identifier!, Instant :$expire-after) {
 
-    return Nil                                          unless self!cache-will-hit($expire-after);
+    return Nil                                          unless self!cache-will-hit(:$expire-after);
 
     my IO::Handle $fh;
     if $!active-data-path.Str.ends-with('.bz2') {
