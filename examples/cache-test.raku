@@ -7,8 +7,9 @@ use Data::Dump::Tree;
 
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
 
-my $identifier  = 'A' x 132;
+my $identifier  = 'A' x 12;
 my $cache       = Our::Cache.new(:$identifier);
+$cache.store(:$identifier, :data<AAAAAAAAAAAA>);
 
 ddt $cache;
 
