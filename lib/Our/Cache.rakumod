@@ -59,26 +59,40 @@ submethod TWEAK {
     $!cache-data-path                                   = $!cache-entry-full-dir.add: DATA-FILE-NAME;
     $!cache-expire-instant-path                         = $!cache-entry-full-dir.add: EXPIRE-INSTANT-FILE-NAME;
     $!cache-collection-instant-path                     = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
+    sink self!cache-will-hit;
+    unless $!active-data-path {
+        $!temp-write-path                               = $!cache-dir.add: self!generate-temp-file-name;
+    }
+}
 
-#%%% make the next 8 lines a !method that is run during fetch() as well...
+method !cache-will-hit (Instant :$dynamic-expiration) {
+
+    $!cache-hit                                         = False;
+
+#   Static expiration
     if self!cache-path-exists($!cache-data-path) {
         if $!cache-expire-instant-path.e {
             $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
-            if $!expire-instant < now {
-                self!expire;
-                $!cache-hit                             = False;
-            }
+            self!expire                                 if $!expire-instant < now;
         }
         else {
             $!cache-hit                                 = True;
         }
     }
-    unless $!active-data-path {
-        $!temp-write-path                               = $!cache-dir.add: self!generate-temp-file-name;
+    return False                                        unless $!cache-hit;
+
+    if $dynamic-expiration {
+        if $!cache-collection-instant-path.e {
+            $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
+            self!expire                                 if $!expire-instant < now;
+        }
+        else {
+            $!cache-hit                                 = True;
+        }
     }
 put '$!cache-hit = <' ~ $!cache-hit ~ '>';
+    return $!cache-hit;
 }
-
 method !create-cache-directory-segments () {
     my IO::Path $dir                                    = $!cache-dir;
     for @!id-segments -> $segment {
@@ -91,7 +105,10 @@ method !create-cache-directory-segments () {
 }
 
 method !expire () {
-    unlink $!active-data-path                           if $!active-data-path && $!active-data-path.e;
+    if $!active-data-path {
+        unlink $!active-data-path                       if $!active-data-path.e;
+        $!active-data-path                              = Nil;
+    }
     unlink $!cache-expire-instant-path                  if $!cache-expire-instant-path && $!cache-expire-instant-path.e;
     unlink $!cache-collection-instant-path              if $!cache-collection-instant-path && $!cache-collection-instant-path.e;
     my $dir                                             = $!cache-entry-full-dir;
@@ -100,6 +117,7 @@ method !expire () {
         $dir.rmdir;
         $dir                                            = $dir.subst(/ '/' <-[/]>+ $ /);
     }
+    $!cache-hit                                         = False;
 }
 
 method !cache-path-exists (IO::Path:D $path) {
@@ -141,19 +159,8 @@ multi method fetch-fh (:@identifier!, Instant :$expire-after) {
 
 multi method fetch-fh (Str:D :$identifier!, Instant :$expire-after) {
 
-#%%%    missing an expiration case here...  
+    return Nil                                          unless self!cache-will-hit($expire-after);
 
-    if $!expire-instant && $!expire-instant < now {
-        self!expire;
-        return Nil;
-    }
-
-    if $expire-after && $!collection-instant < $expire-after {
-        self!expire;
-        return Nil;
-    }
-
-    return Nil                                          unless self!cache-path-exists($!cache-data-path);
     my IO::Handle $fh;
     if $!active-data-path.Str.ends-with('.bz2') {
         my $proc                                        = run '/usr/bin/bunzip2', '-c', $!active-data-path, :out;
