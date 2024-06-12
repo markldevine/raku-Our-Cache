@@ -59,6 +59,8 @@ submethod TWEAK {
     $!cache-data-path                                   = $!cache-entry-full-dir.add: DATA-FILE-NAME;
     $!cache-expire-instant-path                         = $!cache-entry-full-dir.add: EXPIRE-INSTANT-FILE-NAME;
     $!cache-collection-instant-path                     = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
+
+#%%% make the next 8 lines a !method that is run during fetch() as well...
     if self!cache-path-exists($!cache-data-path) {
         if $!cache-expire-instant-path.e {
             $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
@@ -139,6 +141,8 @@ multi method fetch-fh (:@identifier!, Instant :$expire-after) {
 
 multi method fetch-fh (Str:D :$identifier!, Instant :$expire-after) {
 
+#%%%    missing an expiration case here...  
+
     if $!expire-instant && $!expire-instant < now {
         self!expire;
         return Nil;
@@ -187,6 +191,8 @@ multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expir
 }
 
 multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
+
+#%%%    if expire-after <= now, then why store it at all?
 
     $fh.close                                               if $fh.opened;
     my $keep                                                = '';
@@ -244,6 +250,8 @@ multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expir
 }
 
 multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, Str:D :$data!) {
+
+#%%%    if expire-after <= now, then why store it at all?
 
     my $keep                                                = '';
     $keep                                                   = '--keep ' unless $purge-source;
