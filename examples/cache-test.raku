@@ -3,11 +3,20 @@
 use lib '/home/mdevine/github.com/raku-Our-Cache/lib';
 use Our::Cache;
 #use Compress::Bzip2;
+use Data::Dump::Tree;
 
 run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
 
-my $cache   = Our::Cache.new;
+my $identifier  = 'A' x 132;
+my $cache       = Our::Cache.new(:$identifier);
 
+ddt $cache;
+
+run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+
+=finish
+
+#run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
 my $identifier = 'A' x 1;
 #$cache.store(:$identifier, :data<AAAAAAAAAAAAA>); run <find /home/mdevine/.rakucache/cache-test.raku/ -ls>; put '-' x 80;
 my $data = $cache.fetch(:$identifier) or note;
