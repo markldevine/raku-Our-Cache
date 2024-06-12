@@ -18,6 +18,7 @@ sub Case1 {
     $identifier     = 'A' x 18;
     $cache          = Our::Cache.new(:$identifier);
     $cache.store(:$identifier, :data<AAAAAAAAAAAA>);
+    run <cat /home/mdevine/.rakucache/cache-test.raku/QUFBQUFBQUFBQUFBQUFBQUFB/collection-instant>;
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
     $data           = $cache.fetch(:$identifier) or note;
     put $data       if $data;
@@ -56,7 +57,8 @@ sub Case2 {
     put '=' x 80; put "\n";
 }
 
-Case2;
+Case1;
+#Case2;
 
 =finish
 

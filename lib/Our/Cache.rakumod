@@ -73,6 +73,7 @@ method !cache-will-hit (Instant :$expire-after) {
     if self!cache-path-exists($!cache-data-path) {
         if $!cache-expire-instant-path.e {
             $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
+put '    $!expire-instant = <' ~ $!expire-instant ~ '>';
             self!expire                                 if $!expire-instant < now;
         }
         else {
@@ -83,8 +84,13 @@ method !cache-will-hit (Instant :$expire-after) {
 
     if $expire-after {
         if $!cache-collection-instant-path.e {
-            $!collection-instant                        = Instant.from-posix(slurp($!cache-collection-instant-path).subst(/^Instant\:/).Real);
-            self!expire                                 if $!collection-instant < now;
+my $collection-instant-string = slurp($!cache-collection-instant-path).subst(/^Instant\:/);
+put $collection-instant-string;
+put Instant.from-posix($collection-instant-string.Real);
+            $!collection-instant                        = DateTime.new(slurp($!cache-collection-instant-path).subst(/^Instant\:/).Real).Instant;
+put '$!collection-instant = <' ~ $!collection-instant ~ '>';
+put '       $expire-after = <' ~ $expire-after ~ '>';
+            self!expire                                 if $!collection-instant < $expire-after;
         }
         else {
             $!cache-hit                                 = True;
@@ -158,6 +164,11 @@ multi method fetch-fh (:@identifier!, Instant :$expire-after) {
 }
 
 multi method fetch-fh (Str:D :$identifier!, Instant :$expire-after) {
+
+if $expire-after {
+put 'Expire After:  ' ~ $expire-after.DateTime.local;
+put '         Now:  ' ~ now.DateTime.local;
+}
 
     return Nil                                          unless self!cache-will-hit(:$expire-after);
 
