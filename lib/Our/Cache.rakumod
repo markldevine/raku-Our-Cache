@@ -32,7 +32,7 @@ has IO::Path    $!cache-data-path;
 has IO::Path    $.cache-dir                             = $*HOME;
 has Bool        $.cache-hit                             = False;
 has Instant     $!collection-instant                    is built = now;
-has Instant     $!expire-instant                        is built;
+#has Instant     $!expire-instant                        is built;
 has Str:D       $.subdir                                = $*PROGRAM.IO.basename;
 has IO::Path    $.temp-write-path                       is built(False);
 has Str         @!id-segments;
@@ -72,7 +72,7 @@ method !cache-will-hit (Instant :$expire-after) {
 #   Static expiration
     if self!cache-path-exists($!cache-data-path) {
         if $!cache-expire-instant-path.e {
-            $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
+           $!expire-instant                            = Instant.from-posix(slurp($!cache-expire-instant-path).subst(/^Instant\:/).Real);
 put '    $!expire-instant = <' ~ $!expire-instant ~ '>';
             self!expire                                 if $!expire-instant < now;
         }
@@ -84,10 +84,11 @@ put '    $!expire-instant = <' ~ $!expire-instant ~ '>';
 
     if $expire-after {
         if $!cache-collection-instant-path.e {
-my $collection-instant-string = slurp($!cache-collection-instant-path).subst(/^Instant\:/);
-put $collection-instant-string;
-put Instant.from-posix($collection-instant-string.Real);
-            $!collection-instant                        = DateTime.new(slurp($!cache-collection-instant-path).subst(/^Instant\:/).Real).Instant;
+
+            my $collection-instant-real = slurp($!cache-collection-instant-path).subst(/^Instant\:/).Real;
+put '$collection-instant-real: ' ~ $collection-instant-real;
+
+            $!collection-instant                        = Instant.from-posix(slurp($!cache-collection-instant-path).subst(/^Instant\:/).Real, False);
 put '$!collection-instant = <' ~ $!collection-instant ~ '>';
 put '       $expire-after = <' ~ $expire-after ~ '>';
             self!expire                                 if $!collection-instant < $expire-after;
@@ -255,10 +256,10 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
         }
     }
     $!active-data-path.chmod(DATA-FILE-PERMISSIONS)         or die;
-    $!cache-collection-instant-path.spurt($collected-at)    or die;
+    $!cache-collection-instant-path.spurt($collected-at.Real) or die;
     $!collection-instant                                    = $collected-at;
     if $expire-after {
-        $!cache-expire-instant-path.spurt($expire-after)    or die;
+        $!cache-expire-instant-path.spurt($expire-after.Real) or die;
     }
 }
 
@@ -290,9 +291,9 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
         unlink("$!cache-data-path.bz2")                     if "$!cache-data-path.bz2".IO.e;
     }
     $!active-data-path.chmod(DATA-FILE-PERMISSIONS)         or die;
-    $!cache-collection-instant-path.spurt($collected-at)    or die;
+    $!cache-collection-instant-path.spurt($collected-at.Real) or die;
     if $expire-after {
-        $!cache-expire-instant-path.spurt($expire-after)    or die;
+        $!cache-expire-instant-path.spurt($expire-after.Real) or die;
     }
 }
 
