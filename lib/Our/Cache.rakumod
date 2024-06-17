@@ -36,7 +36,6 @@ has IO::Path    $.temp-write-path                       is built(False);
 has Str         @!id-segments;
 
 submethod TWEAK {
-#   establish the root directory for this cache
     if $!subdir.starts-with('/') {
         $!cache-dir                                     = $!cache-dir.add: $!subdir;
     }
