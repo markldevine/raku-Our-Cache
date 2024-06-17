@@ -70,10 +70,9 @@ method !cache-will-hit (DateTime :$expire-after) {
 #   Static expiration
     if self!cache-path-exists($!cache-data-path) {
         if $!cache-expire-datetime-path.e {
-#%%% check if it's already been read in???
             $!expire-datetime                            = DateTime.new(slurp($!cache-expire-datetime-path));
-put 'STATIC:                     now = ' ~ DateTime(now).local;
-put 'STATIC: $!expire-datetime.local = '  ~ $!expire-datetime.local;
+#put 'STATIC:                     now = ' ~ DateTime(now).local;
+#put 'STATIC: $!expire-datetime.local = '  ~ $!expire-datetime.local;
             self!expire                                 if $!expire-datetime < now;
         }
         else {
@@ -85,16 +84,16 @@ put 'STATIC: $!expire-datetime.local = '  ~ $!expire-datetime.local;
     if $expire-after {
         if $!cache-collection-datetime-path.e {
             $!collection-datetime                       = DateTime.new(slurp($!cache-collection-datetime-path));
-put 'DYNAMIC:                   now = ' ~ DateTime(now).local;
-put 'DYNAMIC:        $!expire-after = ' ~ DateTime($expire-after).local;
-put 'DYNAMIC: $!collection-datetime = ' ~ DateTime($!collection-datetime).local;
+#put 'DYNAMIC:                   now = ' ~ DateTime(now).local;
+#put 'DYNAMIC:        $!expire-after = ' ~ DateTime($expire-after).local;
+#put 'DYNAMIC: $!collection-datetime = ' ~ DateTime($!collection-datetime).local;
             self!expire                                 if $!collection-datetime < $expire-after;
         }
         else {
             $!cache-hit                                 = True;
         }
     }
-put '$!cache-hit = <' ~ $!cache-hit ~ '>';
+#put '$!cache-hit = <' ~ $!cache-hit ~ '>';
     return $!cache-hit;
 }
 method !create-cache-directory-segments () {
@@ -222,7 +221,6 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
 #   Case:   foreign source (not $!cache-data-path)
 
         if $fh.path.Str.starts-with($!cache-dir.Str) && $purge-source {
-put '"' ~ $fh.path.Str ~ '".rename(' ~ $!cache-data-path ~ ')';
             rename($fh.path, $!cache-data-path)             or die;
         }
         elsif ($fh.path.s > MAX-UNCOMPRESSED-DATA-FILE-SIZE) {
@@ -233,11 +231,9 @@ put '"' ~ $fh.path.Str ~ '".rename(' ~ $!cache-data-path ~ ')';
         }
         else {
             if $purge-source {
-put '"' ~ $fh.path.Str ~ '".move(' ~ $!cache-data-path ~ ')';
                 $fh.path.move($!cache-data-path)            or die;
             }
             else {
-put '"' ~ $fh.path.Str ~ '".copy(' ~ $!cache-data-path ~ ')';
                 $fh.path.copy($!cache-data-path)            or die;
             }
         }
