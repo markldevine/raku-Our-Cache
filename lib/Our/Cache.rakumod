@@ -72,6 +72,7 @@ method !cache-will-hit (DateTime :$expire-after) {
         if $!cache-expire-datetime-path.e {
 #%%% check if it's already been read in???
             $!expire-datetime                            = DateTime.new(slurp($!cache-expire-datetime-path));
+put 'STATIC:                     now = ' ~ DateTime(now).local;
 put 'STATIC: ' ~ '$!expire-datetime.local = '  ~ $!expire-datetime.local;
             self!expire                                 if $!expire-datetime < now;
         }
@@ -201,7 +202,12 @@ multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), 
 
 multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
 
-#%%%    if expire-after <= now, then why store it at all?
+    if $expire-after {
+        if $expire-after <= now {
+            note self.^name ~ '::' ~ &?ROUTINE.name ~ ' $expire-after (' ~ $expire-after.local ~ ') expires immediately';
+            return Nil;
+        }
+    }
 
     $fh.close                                               if $fh.opened;
     my $keep                                                = '';
@@ -260,7 +266,12 @@ multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), 
 
 multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$data!) {
 
-#%%%    if expire-after <= now, then why store it at all?
+    if $expire-after {
+        if $expire-after <= now {
+            note self.^name ~ '::' ~ &?ROUTINE.name ~ ' $expire-after (' ~ $expire-after.local ~ ') expires immediately';
+            return Nil;
+        }
+    }
 
     my $keep                                                = '';
     $keep                                                   = '--keep ' unless $purge-source;
