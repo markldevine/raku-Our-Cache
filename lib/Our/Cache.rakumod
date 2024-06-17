@@ -73,7 +73,7 @@ method !cache-will-hit (DateTime :$expire-after) {
 #%%% check if it's already been read in???
             $!expire-datetime                            = DateTime.new(slurp($!cache-expire-datetime-path));
 put 'STATIC:                     now = ' ~ DateTime(now).local;
-put 'STATIC: ' ~ '$!expire-datetime.local = '  ~ $!expire-datetime.local;
+put 'STATIC: $!expire-datetime.local = '  ~ $!expire-datetime.local;
             self!expire                                 if $!expire-datetime < now;
         }
         else {
@@ -84,9 +84,10 @@ put 'STATIC: ' ~ '$!expire-datetime.local = '  ~ $!expire-datetime.local;
 
     if $expire-after {
         if $!cache-collection-datetime-path.e {
-            $!collection-datetime                       = slurp($!cache-collection-datetime-path).DateTime;
-put 'DYNAMIC: ' ~ '      $!expire-after  = '  ~ DateTime($expire-after).local;
-put 'DYNAMIC: ' ~ '$!collection-datetime = '  ~ DateTime($!collection-datetime).local;
+            $!collection-datetime                       = DateTime.new(slurp($!cache-collection-datetime-path));
+put 'DYNAMIC:                   now = ' ~ DateTime(now).local;
+put 'DYNAMIC:        $!expire-after = ' ~ DateTime($expire-after).local;
+put 'DYNAMIC: $!collection-datetime = ' ~ DateTime($!collection-datetime).local;
             self!expire                                 if $!collection-datetime < $expire-after;
         }
         else {
@@ -221,6 +222,7 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
 #   Case:   foreign source (not $!cache-data-path)
 
         if $fh.path.Str.starts-with($!cache-dir.Str) && $purge-source {
+put '"' ~ $fh.path.Str ~ '".rename(' ~ $!cache-data-path ~ ')';
             rename($fh.path, $!cache-data-path)             or die;
         }
         elsif ($fh.path.s > MAX-UNCOMPRESSED-DATA-FILE-SIZE) {
@@ -231,9 +233,11 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
         }
         else {
             if $purge-source {
+put '"' ~ $fh.path.Str ~ '".move(' ~ $!cache-data-path ~ ')';
                 $fh.path.move($!cache-data-path)            or die;
             }
             else {
+put '"' ~ $fh.path.Str ~ '".copy(' ~ $!cache-data-path ~ ')';
                 $fh.path.copy($!cache-data-path)            or die;
             }
         }
@@ -253,9 +257,11 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
     }
     $!active-data-path.chmod(DATA-FILE-PERMISSIONS)         or die;
     $!cache-collection-datetime-path.spurt($collected-at)   or die;
+    $!cache-collection-datetime-path.chmod(DATA-FILE-PERMISSIONS) or die;
     $!collection-datetime                                   = $collected-at;
     if $expire-after {
         $!cache-expire-datetime-path.spurt($expire-after)   or die;
+        $!cache-expire-datetime-path.chmod(DATA-FILE-PERMISSIONS) or die;
     }
 }
 
@@ -293,16 +299,11 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
     }
     $!active-data-path.chmod(DATA-FILE-PERMISSIONS)         or die;
 
-#put '                                 now = ' ~ DateTime(now).local;
-#put '                       $collected-at = ' ~ DateTime($collected-at).local;
-#put '                  $collected-at.Real = ' ~ $collected-at.Real;
-#my $cars = $collected-at.Real.subst(/^Instant':'/);
-#put '$collected-at.Real.subst(/^Instant:/) = ' ~ $collected-at.Real.subst(/^Instant':'/);
-#put '  DateTime(' ~ $cars ~ ').local = ' ~ DateTime($cars.Real).local;
-
     $!cache-collection-datetime-path.spurt($collected-at)   or die;
+    $!cache-collection-datetime-path.chmod(DATA-FILE-PERMISSIONS) or die;
     if $expire-after {
         $!cache-expire-datetime-path.spurt($expire-after)   or die;
+        $!cache-expire-datetime-path.chmod(DATA-FILE-PERMISSIONS) or die;
     }
 }
 

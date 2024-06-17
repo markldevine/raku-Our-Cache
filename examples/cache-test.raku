@@ -9,6 +9,11 @@ my $cache;
 my $data;
 my $identifier;
 
+#Case1;
+#Case2;
+#Case3;
+#Case4;
+Case5;
 
 sub Case1 {
     run <rm -rf /home/mdevine/.rakucache/cache-test.raku/> if "/home/mdevine/.rakucache/cache-test.raku".IO.d;
@@ -65,24 +70,45 @@ sub Case3 {
 }
 
 sub Case4 {
-#   store() with now() expiration, attempt fetch()
+#   rename from local source
+
+    run <rm -rf /home/mdevine/.rakucache/cache-test.raku/> if "/home/mdevine/.rakucache/cache-test.raku".IO.d;
+
     put '=' x 80;
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
     $identifier     = 'D' x 4;
 
     $cache          = Our::Cache.new(:$identifier);
     my $p           = $cache.temp-write-path;
-    spurt($p, 'D' x 1024) or note;
 
-#   $cache.store(:$identifier, :data<DDDDDDDDDDDD>, :expire-after(DateTime.new(now - 1))) or note;
+    spurt($p, 'D' x 1024) or note;
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+
+    $cache.store(:$identifier, :path($p), :purge-source);
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+
     put '=' x 80; put "\n";
 }
 
-#Case1;
-#Case2;
-#Case3;
-Case4;
+sub Case5 {
+#   copy from distant source (keep source)
+
+    run <rm -rf /home/mdevine/.rakucache/cache-test.raku/> if "/home/mdevine/.rakucache/cache-test.raku".IO.d;
+
+    put '=' x 80;
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    $identifier     = 'E' x 48;
+
+    $cache          = Our::Cache.new(:$identifier);
+    my $p           = '/tmp/cache-test.data';
+    spurt($p, 'D' x 1024) or die;
+
+    $cache.store(:$identifier, :path($p), :purge-source(False));
+    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    run <<ls -l $p>>;
+
+    put '=' x 80; put "\n";
+}
 
 =finish
 
