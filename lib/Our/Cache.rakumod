@@ -84,7 +84,6 @@ put 'STATIC: ' ~ '$!expire-datetime.local = '  ~ $!expire-datetime.local;
     if $expire-after {
         if $!cache-collection-datetime-path.e {
             $!collection-datetime                       = slurp($!cache-collection-datetime-path).DateTime;
-put 'DYNAMIC: ' ~ '                 now  = '  ~ DateTime(now).local;
 put 'DYNAMIC: ' ~ '      $!expire-after  = '  ~ DateTime($expire-after).local;
 put 'DYNAMIC: ' ~ '$!collection-datetime = '  ~ DateTime($!collection-datetime).local;
             self!expire                                 if $!collection-datetime < $expire-after;
