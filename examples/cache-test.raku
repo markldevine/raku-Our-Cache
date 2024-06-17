@@ -17,8 +17,9 @@ sub Case1 {
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
     $identifier     = 'A' x 68;
     $cache          = Our::Cache.new(:$identifier);
-    $cache.store(:$identifier, :data<AAAAAAAAAAAA>);
-#   run <cat /home/mdevine/.rakucache/cache-test.raku/QUFBQUFBQUFBQUFBQUFBQUFB/collection-instant>;
+    $cache.store(:$identifier, :data('DaTa' x 10));
+#   run <cat /home/mdevine/.rakucache/cache-test.raku/QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB/QUFBQUFBQUFBQUFBQUFBQUFBQUE=/collection-instant>;
+    put " ";
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
 
 #   simple fetch()
@@ -28,7 +29,7 @@ sub Case1 {
 
 #   fetch() with an $expire-after of now()
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-    $data           = $cache.fetch(:$identifier, :expire-after(now)) or note '1: fetch with immediate expire';
+    $data           = $cache.fetch(:$identifier, :expire-after(now.DateTime)) or note '1: fetch with immediate expire';
     put $data       if $data;
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
     put '=' x 80; put "\n";
@@ -40,7 +41,7 @@ sub Case2 {
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
     $identifier     = 'B' x 24;
     $cache          = Our::Cache.new(:$identifier);
-    $cache.store(:$identifier, :data<BBBBBBBBBBBB>, :expire-after(now - 1));
+    $cache.store(:$identifier, :data<BBBBBBBBBBBB>, :expire-after(DateTime.new(now - 1)));
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
     $data           = $cache.fetch(:$identifier) or note;
     put $data       if $data;
@@ -60,9 +61,9 @@ Case1;
 
 =finish
 
-$cache.store(:$identifier, :data<AAAAAAAAAAAA>, :expire-after(now));
+$cache.store(:$identifier, :data<AAAAAAAAAAAA>, :expire-after(now.DateTime));
 
-#my $data = $cache.fetch(:$identifier, :expire-after(now)) or note;
+#my $data = $cache.fetch(:$identifier, :expire-after(now.DateTime)) or note;
 
 =finish
 

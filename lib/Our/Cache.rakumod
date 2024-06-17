@@ -1,22 +1,20 @@
-use OO::Monitors;
-
-unit monitor Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
+unit class Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
 #%%%    Consider Command::Async::Multi sending in 5000 at once...  Perhaps Our::Cache::Multi...?
 
 use Base64::Native;
 
 #   .../data                # .../data.bz2
-#   .../collection-instant
-#   .../expire-instant
+#   .../collection-datetime
+#   .../expire-datetime
 
 use Data::Dump::Tree;
 
 constant        \CACHE-DIR-PERMISSIONS                  = 0o2770;
-constant        \COLLECTION-INSTANT-FILE-NAME           = 'collection-instant';
+constant        \COLLECTION-INSTANT-FILE-NAME           = 'collection-datetime';
 constant        \DATA-FILE-NAME                         = 'data';
 constant        \DATA-FILE-PERMISSIONS                  = 0o660;
-constant        \EXPIRE-INSTANT-FILE-NAME               = 'expire-instant';
+constant        \EXPIRE-INSTANT-FILE-NAME               = 'expire-datetime';
 constant        \MAX-UNCOMPRESSED-DATA-FILE-SIZE        = 10 * 1024;
 constant        \ID-SEGMENT-SIZE                        = 64;
 constant        \DEFAULT-INITIAL-SUBDIR                 = '.rakucache';
@@ -25,14 +23,14 @@ constant        \TEMP-FILE-NAME-LENGTH                  = 16;
 has Str         $!identifier                            is built is required;
 has Str         $!identifier64;
 has IO::Path    $!active-data-path;
-has IO::Path    $!cache-collection-instant-path;
-has IO::Path    $!cache-expire-instant-path;
+has IO::Path    $!cache-collection-datetime-path;
+has IO::Path    $!cache-expire-datetime-path;
 has IO::Path    $!cache-entry-full-dir;
 has IO::Path    $!cache-data-path;
 has IO::Path    $.cache-dir                             = $*HOME;
 has Bool        $.cache-hit                             = False;
-has             $!collection-instant                    is built = now;
-has             $!expire-instant                        is built;
+has DateTime    $!collection-datetime                   is built = now.DateTime;
+has DateTime    $!expire-datetime                       is built;
 has Str:D       $.subdir                                = $*PROGRAM.IO.basename;
 has IO::Path    $.temp-write-path                       is built(False);
 has Str         @!id-segments;
@@ -57,25 +55,25 @@ submethod TWEAK {
         $!cache-entry-full-dir                          = $!cache-entry-full-dir.add: $segment;
     }
     $!cache-data-path                                   = $!cache-entry-full-dir.add: DATA-FILE-NAME;
-    $!cache-expire-instant-path                         = $!cache-entry-full-dir.add: EXPIRE-INSTANT-FILE-NAME;
-    $!cache-collection-instant-path                     = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
+    $!cache-expire-datetime-path                        = $!cache-entry-full-dir.add: EXPIRE-INSTANT-FILE-NAME;
+    $!cache-collection-datetime-path                    = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
     sink self!cache-will-hit;
     unless $!active-data-path {
         $!temp-write-path                               = $!cache-dir.add: self!generate-temp-file-name;
     }
 }
 
-method !cache-will-hit (Instant :$expire-after) {
+method !cache-will-hit (DateTime :$expire-after) {
 
     $!cache-hit                                         = False;
 
 #   Static expiration
     if self!cache-path-exists($!cache-data-path) {
-        if $!cache-expire-instant-path.e {
-            $!expire-instant                            = slurp($!cache-expire-instant-path).Real;
-put '    $!expire-instant = <' ~ $!expire-instant ~ '>';
-put '            now.Real = <' ~ now.Real ~ '>';
-            self!expire                                 if $!expire-instant < now.Real;
+        if $!cache-expire-datetime-path.e {
+#%%% check if it's already been read in???
+            $!expire-datetime                            = DateTime.new(slurp($!cache-expire-datetime-path));
+put 'STATIC: ' ~ '$!expire-datetime.local = '  ~ $!expire-datetime.local;
+            self!expire                                 if $!expire-datetime < now;
         }
         else {
             $!cache-hit                                 = True;
@@ -84,11 +82,12 @@ put '            now.Real = <' ~ now.Real ~ '>';
     return False                                        unless $!cache-hit;
 
     if $expire-after {
-        if $!cache-collection-instant-path.e {
-            $!collection-instant                        = slurp($!cache-collection-instant-path).Real;
-put '$!collection-instant = <' ~ $!collection-instant ~ '>';
-put '  $expire-after.Real = <' ~ $expire-after.Real ~ '>';
-            self!expire                                 if $!collection-instant < $expire-after.Real;
+        if $!cache-collection-datetime-path.e {
+            $!collection-datetime                       = slurp($!cache-collection-datetime-path).DateTime;
+put 'DYNAMIC: ' ~ '                 now  = '  ~ DateTime(now).local;
+put 'DYNAMIC: ' ~ '      $!expire-after  = '  ~ DateTime($expire-after).local;
+put 'DYNAMIC: ' ~ '$!collection-datetime = '  ~ DateTime($!collection-datetime).local;
+            self!expire                                 if $!collection-datetime < $expire-after;
         }
         else {
             $!cache-hit                                 = True;
@@ -113,8 +112,8 @@ method !expire () {
         unlink $!active-data-path                       if $!active-data-path.e;
         $!active-data-path                              = Nil;
     }
-    unlink $!cache-expire-instant-path                  if $!cache-expire-instant-path && $!cache-expire-instant-path.e;
-    unlink $!cache-collection-instant-path              if $!cache-collection-instant-path && $!cache-collection-instant-path.e;
+    unlink $!cache-expire-datetime-path                 if $!cache-expire-datetime-path && $!cache-expire-datetime-path.e;
+    unlink $!cache-collection-datetime-path             if $!cache-collection-datetime-path && $!cache-collection-datetime-path.e;
     my $dir                                             = $!cache-entry-full-dir;
     while $dir ne $!cache-dir {
         last                                            unless $dir.IO.e;
@@ -147,21 +146,21 @@ method !generate-temp-file-name {
     die;
 }
 
-multi method fetch (:@identifier!, Instant :$expire-after) {
+multi method fetch (:@identifier!, DateTime :$expire-after) {
     return self.fetch(:identifier(@identifier.flat.join), :$expire-after);
 }
 
-multi method fetch (Str:D :$identifier!, Instant :$expire-after) {
+multi method fetch (Str:D :$identifier!, DateTime :$expire-after) {
     my $fh                                              = self.fetch-fh(:$identifier, :$expire-after);
     return Nil                                          unless $fh ~~ IO::Handle:D;
     return $fh.slurp(:close);
 }
 
-multi method fetch-fh (:@identifier!, Instant :$expire-after) {
+multi method fetch-fh (:@identifier!, DateTime :$expire-after) {
     return self.fetch-fh(:identifier(@identifier.flat.join), :$expire-after);
 }
 
-multi method fetch-fh (Str:D :$identifier!, Instant :$expire-after) {
+multi method fetch-fh (Str:D :$identifier!, DateTime :$expire-after) {
 
     return Nil                                          unless self!cache-will-hit(:$expire-after);
 
@@ -177,31 +176,31 @@ multi method fetch-fh (Str:D :$identifier!, Instant :$expire-after) {
 }
 
 #   store from STR
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, Str:D :$path!) {
+multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$path!) {
     return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$path);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, Str:D :$path!) {
+multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$path!) {
     return self.store(:$identifier, :$collected-at, :$expire-after, :$purge-source, :path(IO::Path.new($path)));
 }
 
 #   store from IO::Path
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
+multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
     return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$path);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
+multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
     die                                                 unless $path.e;
     my $fh                                              = open :r, $path or die;
     return self.store(:$identifier, :$collected-at, :$expire-after, :$purge-source, :$fh)
 }
 
 #   store from FH
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
+multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
     return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$fh);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
+multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
 
 #%%%    if expire-after <= now, then why store it at all?
 
@@ -248,19 +247,19 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
         }
     }
     $!active-data-path.chmod(DATA-FILE-PERMISSIONS)         or die;
-    $!cache-collection-instant-path.spurt($collected-at.Real.subst(/^Instant':'/)) or die;
-    $!collection-instant                                    = $collected-at;
+    $!cache-collection-datetime-path.spurt($collected-at)   or die;
+    $!collection-datetime                                   = $collected-at;
     if $expire-after {
-        $!cache-expire-instant-path.spurt($expire-after.Real.subst(/^Instant':'/)) or die;
+        $!cache-expire-datetime-path.spurt($expire-after)   or die;
     }
 }
 
 #   Store from memory
-multi method store (:@identifier!, Instant :$collected-at = now, Instant :$expire-after, Str:D :$data!) {
+multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Str:D :$data!) {
     return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$data);
 }
 
-multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :$expire-after, Bool :$purge-source, Str:D :$data!) {
+multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$data!) {
 
 #%%%    if expire-after <= now, then why store it at all?
 
@@ -283,9 +282,17 @@ multi method store (Str:D :$identifier!, Instant :$collected-at = now, Instant :
         unlink("$!cache-data-path.bz2")                     if "$!cache-data-path.bz2".IO.e;
     }
     $!active-data-path.chmod(DATA-FILE-PERMISSIONS)         or die;
-    $!cache-collection-instant-path.spurt($collected-at.Real.subst(/^Instant':'/)) or die;
+
+#put '                                 now = ' ~ DateTime(now).local;
+#put '                       $collected-at = ' ~ DateTime($collected-at).local;
+#put '                  $collected-at.Real = ' ~ $collected-at.Real;
+#my $cars = $collected-at.Real.subst(/^Instant':'/);
+#put '$collected-at.Real.subst(/^Instant:/) = ' ~ $collected-at.Real.subst(/^Instant':'/);
+#put '  DateTime(' ~ $cars ~ ').local = ' ~ DateTime($cars.Real).local;
+
+    $!cache-collection-datetime-path.spurt($collected-at)   or die;
     if $expire-after {
-        $!cache-expire-instant-path.spurt($expire-after.Real.subst(/^Instant':'/)) or die;
+        $!cache-expire-datetime-path.spurt($expire-after)   or die;
     }
 }
 
