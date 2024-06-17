@@ -55,9 +55,7 @@ submethod TWEAK {
     $!cache-expire-datetime-path                        = $!cache-entry-full-dir.add: EXPIRE-INSTANT-FILE-NAME;
     $!cache-collection-datetime-path                    = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
     sink self!cache-will-hit;
-#   unless $!active-data-path {
-        $!temp-write-path                               = $!cache-dir.add: self!generate-temp-file-name;
-#   }
+    $!temp-write-path                               = $!cache-dir.add: self!generate-temp-file-name;
 }
 
 method !cache-will-hit (DateTime :$expire-after) {
@@ -221,7 +219,7 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
         if ($fh.path.s > MAX-UNCOMPRESSED-DATA-FILE-SIZE) {
             my $shell                                       = shell '/usr/bin/bzip2 ' ~ $keep ~ $fh.path.Str ~ ' > ' ~ $!cache-data-path;
             die                                             if $shell.exitcode;
-            $!active-data-path                              = $!cache-data-path.Str ~ '.bz2'.IO.path;
+            $!active-data-path                              = "$!cache-data-path.bz2".IO.path;
         }
         else {
             if $purge-source {
@@ -244,7 +242,7 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
         if ($!cache-data-path.s > MAX-UNCOMPRESSED-DATA-FILE-SIZE) {
             my $proc                                        = run '/usr/bin/bzip2 ' ~ $keep ~ $!cache-data-path;
             die                                             if $proc.exitcode;
-            $!active-data-path                              = $!cache-data-path.Str ~ '.bz2'.IO.path;
+            $!active-data-path                              = "$!cache-data-path.bz2".IO.path;
         }
         else {
             unlink("$!cache-data-path.bz2")                 if "$!cache-data-path.bz2".IO.e;
@@ -287,7 +285,7 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
     if ($!cache-data-path.s > MAX-UNCOMPRESSED-DATA-FILE-SIZE) {
         my $proc                                            = run '/usr/bin/bzip2 ' ~ $keep ~ $!cache-data-path;
         die                                                 if $proc.exitcode;
-        $!active-data-path                                  = ($!cache-data-path.Str ~ '.bz2').IO.path;
+        $!active-data-path                                  = "$!cache-data-path.bz2".IO.path;
     }
     else {
         unlink("$!cache-data-path.bz2")                     if "$!cache-data-path.bz2".IO.e;
