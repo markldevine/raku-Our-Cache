@@ -15,22 +15,20 @@ sub Case1 {
 #   simple store(), simple fetch()
     put '=' x 80;
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-    $identifier     = 'A' x 18;
+    $identifier     = 'A' x 68;
     $cache          = Our::Cache.new(:$identifier);
     $cache.store(:$identifier, :data<AAAAAAAAAAAA>);
-    run <cat /home/mdevine/.rakucache/cache-test.raku/QUFBQUFBQUFBQUFBQUFBQUFB/collection-instant>;
+#   run <cat /home/mdevine/.rakucache/cache-test.raku/QUFBQUFBQUFBQUFBQUFBQUFB/collection-instant>;
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-    $data           = $cache.fetch(:$identifier) or note;
-    put $data       if $data;
 
 #   simple fetch()
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-    $data           = $cache.fetch(:$identifier) or note;
+    $data           = $cache.fetch(:$identifier) or note '1: simple fetch';
     put $data       if $data;
 
 #   fetch() with an $expire-after of now()
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
-    $data           = $cache.fetch(:$identifier, :expire-after(now)) or note;
+    $data           = $cache.fetch(:$identifier, :expire-after(now)) or note '1: fetch with immediate expire';
     put $data       if $data;
     run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
     put '=' x 80; put "\n";
