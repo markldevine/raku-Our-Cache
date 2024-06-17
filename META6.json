@@ -2,6 +2,7 @@
   "auth": "zef:markldevine",
   "authors": [ "Mark Devine <mark@markdevine.com>" ],
   "depends": [
+    "Base64::Native"
   ],
   "description": "Our Cache - A general purpose cache for scripts",
   "license": "Artistic-2.0",

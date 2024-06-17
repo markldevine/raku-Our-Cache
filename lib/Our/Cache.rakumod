@@ -8,8 +8,6 @@ use Base64::Native;
 #   .../collection-datetime
 #   .../expire-datetime
 
-use Data::Dump::Tree;
-
 constant        \CACHE-DIR-PERMISSIONS                  = 0o2770;
 constant        \COLLECTION-INSTANT-FILE-NAME           = 'collection-datetime';
 constant        \DATA-FILE-NAME                         = 'data';
