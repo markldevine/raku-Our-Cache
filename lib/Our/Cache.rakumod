@@ -55,7 +55,7 @@ submethod TWEAK {
     $!cache-expire-datetime-path                        = $!cache-entry-full-dir.add: EXPIRE-INSTANT-FILE-NAME;
     $!cache-collection-datetime-path                    = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
     sink self!cache-will-hit;
-    $!temp-write-path                               = $!cache-dir.add: self!generate-temp-file-name;
+    $!temp-write-path                                   = $!cache-dir.add: self!generate-temp-file-name;
 }
 
 method !cache-will-hit (DateTime :$expire-after) {
@@ -95,6 +95,7 @@ method !cache-will-hit (DateTime :$expire-after) {
 #put '$!cache-hit = <' ~ $!cache-hit ~ '>';
     return $!cache-hit;
 }
+
 method !create-cache-directory-segments () {
     my IO::Path $dir                                    = $!cache-dir;
     for @!id-segments -> $segment {
