@@ -59,33 +59,39 @@ submethod TWEAK {
 }
 
 method !cache-will-hit (DateTime :$expire-after) {
-
     $!cache-hit                                         = False;
-
-#   Static expiration
     if self!cache-path-exists($!cache-data-path) {
+#   Static expiration
         if $!cache-expire-datetime-path.e {
             $!expire-datetime                            = DateTime.new(slurp($!cache-expire-datetime-path));
 #put 'STATIC:                     now = ' ~ DateTime(now).local;
-#put 'STATIC: $!expire-datetime.local = '  ~ $!expire-datetime.local;
-            self!expire                                 if $!expire-datetime < now;
+#put 'STATIC: $!expire-datetime.local = ' ~ $!expire-datetime.local;
+            if $!expire-datetime < now {
+#put 'self!expire';
+                self!expire;
+                return False;
+            }
+            else {
+                $!cache-hit                             = True;
+            }
         }
-        else {
-            $!cache-hit                                 = True;
-        }
-    }
-    return False                                        unless $!cache-hit;
 
-    if $expire-after {
-        if $!cache-collection-datetime-path.e {
-            $!collection-datetime                       = DateTime.new(slurp($!cache-collection-datetime-path));
+#   Dynamic expiration
+        if $expire-after {
+            if $!cache-collection-datetime-path.e {
+                $!collection-datetime                       = DateTime.new(slurp($!cache-collection-datetime-path));
 #put 'DYNAMIC:                   now = ' ~ DateTime(now).local;
 #put 'DYNAMIC:        $!expire-after = ' ~ DateTime($expire-after).local;
 #put 'DYNAMIC: $!collection-datetime = ' ~ DateTime($!collection-datetime).local;
-            self!expire                                 if $!collection-datetime < $expire-after;
-        }
-        else {
-            $!cache-hit                                 = True;
+#put 'self!expire' if $!collection-datetime < $expire-after;
+                if $!collection-datetime < $expire-after {
+                    self!expire;
+                    return False;
+                }
+                else {
+                    $!cache-hit                             = True;
+                }
+            }
         }
     }
 #put '$!cache-hit = <' ~ $!cache-hit ~ '>';
@@ -125,7 +131,7 @@ method !cache-path-exists (IO::Path:D $path) {
         return True;
     }
     elsif "$path.bz2".IO.e {
-        $!active-data-path                              = ($path.Str ~ '.bz2').IO.path;
+        $!active-data-path                              = IO::Path.new($path.Str ~ '.bz2');
         return True;
     }
     return False;
@@ -196,7 +202,7 @@ multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), 
 }
 
 multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
-
+put '$purge-source = ' ~ $purge-source;
     if $expire-after {
         if $expire-after <= now {
             note self.^name ~ '::' ~ &?ROUTINE.name ~ ' $expire-after (' ~ $expire-after.local ~ ') expires immediately';
@@ -217,9 +223,10 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
 #   Case:   foreign source (not $!cache-data-path)
 
         if ($fh.path.s > MAX-UNCOMPRESSED-DATA-FILE-SIZE) {
-            my $shell                                       = shell '/usr/bin/bzip2 ' ~ $keep ~ $fh.path.Str ~ ' > ' ~ $!cache-data-path;
+            my $shell                                       = shell '/usr/bin/bzip2 --stdout ' ~ $fh.path.Str ~ ' > ' ~ $!cache-data-path ~ '.bz2';
             die                                             if $shell.exitcode;
-            $!active-data-path                              = "$!cache-data-path.bz2".IO.path;
+            $fh.path.unlink                                 if $purge-source;
+            $!active-data-path                              = IO::Path.new($!cache-data-path.Str ~ '.bz2');
         }
         else {
             if $purge-source {
@@ -242,7 +249,7 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
         if ($!cache-data-path.s > MAX-UNCOMPRESSED-DATA-FILE-SIZE) {
             my $proc                                        = run '/usr/bin/bzip2 ' ~ $keep ~ $!cache-data-path;
             die                                             if $proc.exitcode;
-            $!active-data-path                              = "$!cache-data-path.bz2".IO.path;
+            $!active-data-path                              = IO::Path.new($!cache-data-path.Str ~ '.bz2');
         }
         else {
             unlink("$!cache-data-path.bz2")                 if "$!cache-data-path.bz2".IO.e;
