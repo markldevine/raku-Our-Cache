@@ -61,6 +61,10 @@ submethod TWEAK {
 method !cache-will-hit (DateTime :$expire-after) {
     $!cache-hit                                         = False;
     if self!cache-path-exists($!cache-data-path) {
+        $!cache-hit                                     = True;
+
+#put '$!active-data-path = ' ~ $!active-data-path;
+
 #   Static expiration
         if $!cache-expire-datetime-path.e {
             $!expire-datetime                            = DateTime.new(slurp($!cache-expire-datetime-path));
@@ -71,9 +75,6 @@ method !cache-will-hit (DateTime :$expire-after) {
                 self!expire;
                 return False;
             }
-            else {
-                $!cache-hit                             = True;
-            }
         }
 
 #   Dynamic expiration
@@ -83,13 +84,10 @@ method !cache-will-hit (DateTime :$expire-after) {
 #put 'DYNAMIC:                   now = ' ~ DateTime(now).local;
 #put 'DYNAMIC:        $!expire-after = ' ~ DateTime($expire-after).local;
 #put 'DYNAMIC: $!collection-datetime = ' ~ DateTime($!collection-datetime).local;
-#put 'self!expire' if $!collection-datetime < $expire-after;
                 if $!collection-datetime < $expire-after {
+#put 'self!expire';
                     self!expire;
                     return False;
-                }
-                else {
-                    $!cache-hit                             = True;
                 }
             }
         }
@@ -202,7 +200,6 @@ multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), 
 }
 
 multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
-put '$purge-source = ' ~ $purge-source;
     if $expire-after {
         if $expire-after <= now {
             note self.^name ~ '::' ~ &?ROUTINE.name ~ ' $expire-after (' ~ $expire-after.local ~ ') expires immediately';
