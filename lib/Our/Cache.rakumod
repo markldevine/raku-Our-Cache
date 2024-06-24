@@ -4,6 +4,7 @@ unit class Our::Cache:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
 use Base64::Native;
 
+#   /.last-full-expiration-scan
 #   .../data                # .../data.bz2
 #   .../collection-datetime
 #   .../expire-datetime
@@ -13,6 +14,7 @@ constant        \COLLECTION-INSTANT-FILE-NAME           = 'collection-datetime';
 constant        \DATA-FILE-NAME                         = 'data';
 constant        \DATA-FILE-PERMISSIONS                  = 0o660;
 constant        \EXPIRE-INSTANT-FILE-NAME               = 'expire-datetime';
+constant        \LAST-FULL-EXPIRATION-SCAN-FILE-NAME    = '.last-full-expiration-scan';
 constant        \MAX-UNCOMPRESSED-DATA-FILE-SIZE        = 10 * 1024;
 constant        \ID-SEGMENT-SIZE                        = 64;
 constant        \DEFAULT-INITIAL-SUBDIR                 = '.rakucache';
@@ -32,6 +34,7 @@ has DateTime    $!expire-datetime                       is built;
 has Str:D       $.subdir                                = $*PROGRAM.IO.basename;
 has IO::Path    $.temp-write-path                       is built(False);
 has Str         @!id-segments;
+has Int         $.full-expiration-scan-interval         = (24 * 60 * 60);
 
 submethod TWEAK {
     if $!subdir.starts-with('/') {
@@ -62,11 +65,42 @@ submethod TWEAK {
 }
 
 method !purge-all-expired-data () {
-    my IO::Path $dir                                    = $!cache-dir;
-    for $dir.dir -> $dir {
-#       $dir                                            = $dir.add: $segment;
-put $dir;
+    if ("$!cache-dir/{LAST-FULL-EXPIRATION-SCAN-FILE-NAME}".IO.e) {
+        return if "$!cache-dir/{LAST-FULL-EXPIRATION-SCAN-FILE-NAME}".IO.modified > (now - $!full-expiration-scan-interval);
     }
+    my @expired-directories = self!process_dir($!cache-dir);
+    my $dir-sep = $!cache-dir.IO.SPEC.dir-sep;
+    for @expired-directories -> $dir {
+        unlink "$dir/{EXPIRE-INSTANT-FILE-NAME}";
+        unlink "$dir/{DATA-FILE-NAME}";
+        unlink "$dir/{DATA-FILE-NAME}.bz2";
+        unlink "$dir/{COLLECTION-INSTANT-FILE-NAME}";
+        "$dir".IO.rmdir;
+        my @sub-dirs = $dir.subst($!cache-dir ~ $dir-sep).split($dir-sep);
+        loop (my $i = @sub-dirs.elems - 2; $i >= 0; $i--) {
+            my $path = IO::Path.new($!cache-dir ~ $dir-sep ~ @sub-dirs[0..$i].join($dir-sep));
+            last if $path.dir-with-entries;
+            $path.rmdir;
+        }
+    }
+    spurt("$!cache-dir/{LAST-FULL-EXPIRATION-SCAN-FILE-NAME}");
+}
+
+method !process_dir (IO::Path:D $dir) {
+    my @expired-directories;
+    for $dir.dir -> $dir-ent {
+        if $dir-ent.d {
+            @expired-directories.append: self!process_dir($dir-ent);
+        }
+        elsif $dir-ent.f {
+            if $dir-ent.Str.ends-with(EXPIRE-INSTANT-FILE-NAME) {
+                if DateTime.new(slurp($dir-ent)) < now {
+                    @expired-directories.push: $dir-ent.dirname;
+                };
+            }
+        }
+    }
+    return @expired-directories;
 }
 
 method !cache-will-hit (DateTime :$expire-after) {
