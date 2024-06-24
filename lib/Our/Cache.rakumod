@@ -44,6 +44,9 @@ submethod TWEAK {
         $!cache-dir.mkdir(:mode(CACHE-DIR-PERMISSIONS)) or die;
         $!cache-dir.chmod(CACHE-DIR-PERMISSIONS)        or die;
     }
+
+    self!purge-all-expired-data;
+
     $!identifier64                                      = base64-encode($!identifier, :str);
     $!cache-entry-full-dir                              = $!cache-dir;
 
@@ -56,6 +59,14 @@ submethod TWEAK {
     $!cache-collection-datetime-path                    = $!cache-entry-full-dir.add: COLLECTION-INSTANT-FILE-NAME;
     sink self!cache-will-hit;
     $!temp-write-path                                   = $!cache-dir.add: self!generate-temp-file-name;
+}
+
+method !purge-all-expired-data () {
+    my IO::Path $dir                                    = $!cache-dir;
+    for $dir.dir -> $dir {
+#       $dir                                            = $dir.add: $segment;
+put $dir;
+    }
 }
 
 method !cache-will-hit (DateTime :$expire-after) {
