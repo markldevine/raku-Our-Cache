@@ -20,7 +20,7 @@ constant        \ID-SEGMENT-SIZE                        = 64;
 constant        \DEFAULT-INITIAL-SUBDIR                 = '.rakucache';
 constant        \TEMP-FILE-NAME-LENGTH                  = 16;
 
-has Str         $!identifier                            is built is required;
+has             $!identifier                            is built is required;
 has Str         $!identifier64;
 has IO::Path    $!active-data-path;
 has IO::Path    $!cache-collection-datetime-path;
@@ -50,6 +50,8 @@ submethod TWEAK {
     }
 
     self!purge-all-expired-data;
+
+    $!identifier                                        = $!identifier.join if $!identifier ~~ Positional;
 
     $!identifier64                                      = base64-encode($!identifier, :str);
     $!cache-entry-full-dir                              = $!cache-dir;
@@ -192,21 +194,24 @@ method !generate-temp-file-name {
     die;
 }
 
-multi method fetch (:@identifier!, DateTime :$expire-after) {
-    return self.fetch(:identifier(@identifier.flat.join), :$expire-after);
-}
+#multi method fetch (:@identifier!, DateTime :$expire-after) {
+#    return self.fetch(:identifier(@identifier.flat.join), :$expire-after);
+#}
 
-multi method fetch (Str:D :$identifier!, DateTime :$expire-after) {
-    my $fh                                              = self.fetch-fh(:$identifier, :$expire-after);
+#multi method fetch (Str:D :$identifier!, DateTime :$expire-after) {
+multi method fetch (DateTime :$expire-after) {
+#   my $fh                                              = self.fetch-fh(:$identifier, :$expire-after);
+    my $fh                                              = self.fetch-fh(:$expire-after);
     return Nil                                          unless $fh ~~ IO::Handle:D;
     return $fh.slurp(:close);
 }
 
-multi method fetch-fh (:@identifier!, DateTime :$expire-after) {
-    return self.fetch-fh(:identifier(@identifier.flat.join), :$expire-after);
-}
+#multi method fetch-fh (:@identifier!, DateTime :$expire-after) {
+#    return self.fetch-fh(:identifier(@identifier.flat.join), :$expire-after);
+#}
 
-multi method fetch-fh (Str:D :$identifier!, DateTime :$expire-after) {
+#multi method fetch-fh (Str:D :$identifier!, DateTime :$expire-after) {
+multi method fetch-fh (DateTime :$expire-after) {
 
     return Nil                                          unless self!cache-will-hit(:$expire-after);
 
@@ -222,31 +227,36 @@ multi method fetch-fh (Str:D :$identifier!, DateTime :$expire-after) {
 }
 
 #   store from STR
-multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$path);
-}
+#multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$path!) {
+#    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$path);
+#}
 
-multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$path!) {
-    return self.store(:$identifier, :$collected-at, :$expire-after, :$purge-source, :path(IO::Path.new($path)));
+#multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$path!) {
+multi method store (DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$path!) {
+#   return self.store(:$identifier, :$collected-at, :$expire-after, :$purge-source, :path(IO::Path.new($path)));
+    return self.store(:$collected-at, :$expire-after, :$purge-source, :path(IO::Path.new($path)));
 }
 
 #   store from IO::Path
-multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$path);
-}
+#multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
+#    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$path);
+#}
 
-multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
+#multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
+multi method store (DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Path:D :$path!) {
     die                                                 unless $path.e;
     my $fh                                              = open :r, $path or die;
-    return self.store(:$identifier, :$collected-at, :$expire-after, :$purge-source, :$fh)
+#   return self.store(:$identifier, :$collected-at, :$expire-after, :$purge-source, :$fh)
+    return self.store(:$collected-at, :$expire-after, :$purge-source, :$fh)
 }
 
 #   store from FH
-multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$fh);
-}
+#multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
+#    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$purge-source, :$fh);
+#}
 
-multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
+#multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
+multi method store (DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, IO::Handle:D :$fh!) {
     if $expire-after {
         if $expire-after <= now {
             note self.^name ~ '::' ~ &?ROUTINE.name ~ ' $expire-after (' ~ $expire-after.local ~ ') expires immediately';
@@ -310,11 +320,12 @@ multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(
 }
 
 #   Store from memory
-multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Str:D :$data!) {
-    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$data);
-}
+#multi method store (:@identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Str:D :$data!) {
+#    return self.store(:identifier(@identifier.flat.join), :$collected-at, :$expire-after, :$data);
+#}
 
-multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$data!) {
+#multi method store (Str:D :$identifier!, DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$data!) {
+multi method store (DateTime :$collected-at = DateTime.new(now), DateTime :$expire-after, Bool :$purge-source, Str:D :$data!) {
 
     if $expire-after {
         if $expire-after <= now {
