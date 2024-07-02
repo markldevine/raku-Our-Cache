@@ -37,7 +37,8 @@ has Str         @!id-segments;
 has Int         $.full-expiration-scan-interval         = (24 * 60 * 60);
 
 submethod TWEAK {
-    @!subdirs.unshift(DEFAULT-INITIAL-SUBDIR)           unless @!subdirs.elems && @!subdirs[0] eq DEFAULT-INITIAL-SUBDIR;
+    @!subdirs[0]                                        = $*PROGRAM-NAME.IO.basename unless @!subdirs.elems;
+    @!subdirs.unshift(DEFAULT-INITIAL-SUBDIR)           unless @!subdirs[0]:exists && @!subdirs[0] eq DEFAULT-INITIAL-SUBDIR;
 #   if $!subdir.starts-with('/') {
 #       $!cache-dir                                     = $!cache-dir.add: $!subdir;
 #   }
