@@ -31,18 +31,19 @@ has IO::Path    $.cache-dir                             = $*HOME;
 has Bool        $.cache-hit                             = False;
 has DateTime    $!collection-datetime                   is built = now.DateTime;
 has DateTime    $!expire-datetime                       is built;
-has Str:D       $.subdir                                = $*PROGRAM.IO.basename;
+has Str:D       @.subdirs;
 has IO::Path    $.temp-write-path                       is built(False);
 has Str         @!id-segments;
 has Int         $.full-expiration-scan-interval         = (24 * 60 * 60);
 
 submethod TWEAK {
-    if $!subdir.starts-with('/') {
-        $!cache-dir                                     = $!cache-dir.add: $!subdir;
-    }
-    else {
-        $!cache-dir                                     = $!cache-dir.add: DEFAULT-INITIAL-SUBDIR, $!subdir;
-    }
+    @!subdirs.unshift(DEFAULT-INITIAL-SUBDIR)           unless @!subdirs.elems && @!subdirs[0] eq DEFAULT-INITIAL-SUBDIR;
+#   if $!subdir.starts-with('/') {
+#       $!cache-dir                                     = $!cache-dir.add: $!subdir;
+#   }
+#   else {
+        $!cache-dir                                     = $!cache-dir.add: @!subdirs;
+#   }
     unless $!cache-dir.e {
         $!cache-dir.mkdir(:mode(CACHE-DIR-PERMISSIONS)) or die;
         $!cache-dir.chmod(CACHE-DIR-PERMISSIONS)        or die;
