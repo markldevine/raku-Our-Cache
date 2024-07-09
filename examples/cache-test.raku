@@ -1,6 +1,6 @@
 #!/usr/bin/env raku
 
-use lib '/home/mdevine/github.com/raku-Our-Cache/lib';
+#use lib '/home/mdevine/github.com/raku-Our-Cache/lib';
 use Our::Cache;
 #use Compress::Bzip2;
 use Data::Dump::Tree;
