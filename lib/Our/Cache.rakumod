@@ -38,19 +38,17 @@ has Int         $.full-expiration-scan-interval         = (24 * 60 * 60);
 
 submethod TWEAK {
 
-#   ~/.rakucache/<basepath> must be base64-encode($*PROGRAM.absolute, :str) to inherit disambiguation from the file system
-#   if a programmer wants to make their own, they accept the risk of naming collisions
-#   @!subdirs[0]                                        = $*PROGRAM-NAME.IO.basename unless @!subdirs.elems;
+#   ~/.rakucache/<basepath> must be base64-encode($*PROGRAM.absolute, :str)
+#   to inherit disambiguation from the file system.
+#   If a programmer wants to make their own sub-base path, they accept the
+#   risk of naming collisions.  One may want to do this if running copies of
+#   the same script in the same account in the same server from more than one location.
+
     @!subdirs[0]                                        = base64-encode($*PROGRAM.absolute, :str) unless @!subdirs.elems;
 
-
     @!subdirs.unshift(DEFAULT-INITIAL-SUBDIR)           unless @!subdirs[0]:exists && @!subdirs[0] eq DEFAULT-INITIAL-SUBDIR;
-#   if $!subdir.starts-with('/') {
-#       $!cache-dir                                     = $!cache-dir.add: $!subdir;
-#   }
-#   else {
-        $!cache-dir                                     = $!cache-dir.add: @!subdirs;
-#   }
+    $!cache-dir                                     = $!cache-dir.add: @!subdirs;
+
     unless $!cache-dir.e {
         $!cache-dir.mkdir(:mode(CACHE-DIR-PERMISSIONS)) or die;
         $!cache-dir.chmod(CACHE-DIR-PERMISSIONS)        or die;

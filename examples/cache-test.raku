@@ -9,34 +9,34 @@ my $cache;
 my $data;
 my $identifier;
 
-#Case1;
+Case1;
 #Case2;
-Case3;
+#Case3;
 #Case4;
 #Case5;
 
 sub Case1 {
-#   run <rm -rf /home/mdevine/.rakucache/cache-test.raku/> if "/home/mdevine/.rakucache/cache-test.raku".IO.d;
+    run <rm -rf /home/mdevine/.rakucache/> if "/home/mdevine/.rakucache".IO.d;
 #   simple store(), simple fetch()
     put '=' x 80;
-    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    run <find /home/mdevine/.rakucache/ -ls> if "/home/mdevine/.rakucache".IO.d; put '-' x 80;
     $identifier     = 'A' x 68;
     $cache          = Our::Cache.new(:$identifier);
     $cache.store(:data('DaTa' x 10), :expire-after(DateTime.new(now + 10))) or note;
 #   run <cat /home/mdevine/.rakucache/cache-test.raku/QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB/QUFBQUFBQUFBQUFBQUFBQUFBQUE=/collection-instant>;
     put " ";
-    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    run <find /home/mdevine/.rakucache/ -ls> if "/home/mdevine/.rakucache".IO.d; put '-' x 80;
 
 #   simple fetch()
-    run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+    run <find /home/mdevine/.rakucache -ls> if "/home/mdevine/.rakucache".IO.d; put '-' x 80;
     $data           = $cache.fetch or note '1: simple fetch';
     put $data       if $data;
 
 #   fetch() with an $expire-after of now()
-#   run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+#   run <find /home/mdevine/.rakucache/ -ls> if "/home/mdevine/.rakucache".IO.d; put '-' x 80;
 #   $data           = $cache.fetch(:expire-after(now.DateTime)) or note '1: fetch with immediate expire';
 #   put $data       if $data;
-#   run <find /home/mdevine/.rakucache/cache-test.raku/ -ls> if "/home/mdevine/.rakucache/cache-test.raku".IO.d; put '-' x 80;
+#   run <find /home/mdevine/.rakucache/ -ls> if "/home/mdevine/.rakucache".IO.d; put '-' x 80;
     put '=' x 80; put "\n";
 }
 
