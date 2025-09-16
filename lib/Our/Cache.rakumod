@@ -36,6 +36,9 @@ has IO::Path    $.temp-write-path                       is built(False);
 has Str         @!id-segments;
 has Int         $.full-expiration-scan-interval         = (24 * 60 * 60);
 
+#   ~/.rakucache/<basepath> must be base64-encode($*PROGRAM.absolute, :str) to inherit disambiguation from the file system
+#   if a programmer wants to make their own, they accept the risk of naming collisions
+
 submethod TWEAK {
     @!subdirs[0]                                        = $*PROGRAM-NAME.IO.basename unless @!subdirs.elems;
     @!subdirs.unshift(DEFAULT-INITIAL-SUBDIR)           unless @!subdirs[0]:exists && @!subdirs[0] eq DEFAULT-INITIAL-SUBDIR;
